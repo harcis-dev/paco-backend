@@ -1,0 +1,66 @@
+version: '3.7'
+
+services:
+
+    mongodb:
+        image: mongo
+        container_name: mongo
+        restart: unless-stopped
+        command: mongod --auth
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: "admin"
+            MONGO_INITDB_ROOT_PASSWORD: "1234"
+            MONGO_INITDB_DATABASE: webapp
+            MONGODB_DATA_DIR: /data/db
+        volumes:
+          - mongodbdata:/data/db
+        networks:
+          - backend
+          
+    mongo-express:
+        image: mongo-express
+        environment:
+            - ME_CONFIG_MONGODB_SERVER=mongodb
+            - ME_CONFIG_MONGODB_PORT=27017
+            - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+            - ME_CONFIG_MONGODB_AUTH_DATABASE=admin
+            - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_ROOT_USER}
+            - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_ROOT_PASSWORD}
+            - ME_CONFIG_BASICAUTH_USERNAME=${MONGOEXPRESS_LOGIN}
+            - ME_CONFIG_BASICAUTH_PASSWORD=${MONGOEXPRESS_PASSWORD}
+        links:
+            - mongodb
+        ports:
+          - "8081:8081"
+        networks: 
+          - backend
+        volumes:
+          - mongodbdata:/data/db
+
+
+    api:
+        build: 
+            context: ./backend
+            dockerfile: Dockerfile
+        command: gunicorn --bind 0.0.0.0:5000 app:app
+        ports:
+            - "5000:5000"
+        environment:
+            MONGODB_HOST: mongodb
+            MONGODB_USERNAME: "apiuser"
+            MONGODB_PASSWORD: "affeaffe123"
+        volumes:
+            - appdata:/var/www/
+        depends_on: 
+            - mongodb
+        networks:
+            - backend
+
+networks:
+    backend:
+        driver: bridge
+volumes:
+    mongodbdata:
+        driver: local
+    appdata:
+        driver: local
