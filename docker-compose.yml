@@ -8,10 +8,10 @@ services:
         restart: unless-stopped
         command: mongod --auth
         environment:
-            MONGO_INITDB_ROOT_USERNAME: "admin"
-            MONGO_INITDB_ROOT_PASSWORD: "1234"
-            MONGO_INITDB_DATABASE: webapp
-            MONGODB_DATA_DIR: /data/db
+           - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USER}
+           - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+           - MONGO_INITDB_DATABASE=webapp
+           - MONGODB_DATA_DIR=/data/db
         volumes:
           - mongodbdata:/data/db
         networks:
@@ -46,9 +46,9 @@ services:
         ports:
             - "5000:5000"
         environment:
-            MONGODB_HOST: mongodb
-            MONGODB_USERNAME: "apiuser"
-            MONGODB_PASSWORD: "affeaffe123"
+            - MONGODB_HOST=${MONGODB_HOST}
+            - MONGODB_USERNAME=${MONGODB_USERNAME}
+            - MONGODB_PASSWORD=${MONGODB_PASSWORD}
         volumes:
             - appdata:/var/www/
         depends_on: 
