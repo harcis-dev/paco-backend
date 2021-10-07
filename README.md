@@ -16,7 +16,7 @@ http://localhost:5000/api
 #### .env
 ***
 In der Datei sollten folgende Variablen enthalten sein:
-
+```
 MONGO_ROOT_USER=user
 MONGO_ROOT_PASSWORD=password
 MONGOEXPRESS_LOGIN=dev
@@ -24,6 +24,7 @@ MONGOEXPRESS_PASSWORD=dev
 MONGODB_USERNAME=apiuser
 MONGODB_PASSWORD=apipassword
 MONGODB_HOST=mongodb
+```
 
 ## Installation
 ***
