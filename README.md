@@ -7,7 +7,7 @@ Sobald die Installation abgeschlossen ist und alle Container gestartet wurden st
 
 URL für MongoDB:
 http://localhost:8081/
-Beim ersten öffen mit dem MONGOEXPRESS_LOGIN und MONGOEXPRESS_PASSWORD anmelden.
+
 
 
 URL für die Flasks-API:
@@ -42,4 +42,4 @@ $ root@786b840a5df7:/# mongo -u admin -p
 > db.createUser({user: 'apiuser', pwd: 'apipassword', roles: [{role: 'readWrite', db: 'webapp'}]})
 ```
 Den gewählten Nutzernamen in der .env Datei bei MONGODB_USERNAME eintragen und das Passwort bei MONGODB_PASSWORD.
-Danach nochmal alle Docker Container neu starten.
+Danach nochmal alle Docker-Container neustarten.
