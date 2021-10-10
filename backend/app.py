@@ -2,9 +2,11 @@ import datetime
 import os
  
 from flask import Flask, Response, request
+from flask_cors import CORS
 from flask_mongoengine import MongoEngine
 
 app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.config['MONGODB_SETTINGS'] = {
     'host': os.environ['MONGODB_HOST'],
     'username': os.environ['MONGODB_USERNAME'],
