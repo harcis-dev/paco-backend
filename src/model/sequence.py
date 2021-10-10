@@ -8,10 +8,9 @@ class Sequence:
         footprint = "["
 
         for e in self.events:
-            footprint += e.name
-            footprint += ", "
+            footprint += e.name + ", "
 
-        footprint = footprint[:-2] + "]"
+        footprint = footprint[:-2] + "]"  # remove the last ", "
 
         return footprint
 

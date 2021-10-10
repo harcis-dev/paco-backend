@@ -1,4 +1,4 @@
-from backend.model.sequence import Sequence
+from src.model.sequence import Sequence
 
 
 class Variant(Sequence):
