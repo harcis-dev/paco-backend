@@ -18,11 +18,11 @@ def init_database():
     try:
         global conn
         conn = mariadb.connect(
-            user="root",
-            password="123456",
-            host="127.0.0.1",
-            port=8991,
-            database="sap",
+            user=os.environ['MARIADB_USER'],
+            password=os.environ['MARIADB_PASS'],
+            host=os.environ['MARIADB_HOST'],
+            port=int(os.environ['MARIADB_PORT']),
+            database=os.environ['MARIADB_NAME'],
         )
         print("Debug: Database connection established")
         return True

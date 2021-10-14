@@ -27,14 +27,13 @@ class SapEventLog(EventLog):
                 filter_sequence_ids = mariadb_service.filter_sequences(filter, filters[filter])
                 if filter_sequence_ids and sequence_ids:
                     sequence_ids = sequence_ids.intersection(filter_sequence_ids)  # take only common items
-                    if not sequence_ids:  # if there were no common items => all the following intersections will be empty
-                        break             # => further iterations unnecessary
                 elif filter_sequence_ids:               # if it is the first key
                     sequence_ids = filter_sequence_ids  # (at first the set of sequences is empty
                                                         # => empty intersection as a result)
-                else:                     # if the set of sequence ids for the current filter is empty
+
+                if not sequence_ids:      # if the result set of sequence ids is empty after applying of the filter
                     sequence_ids = set()  # then there is no element that satisfies the given filter conditions
-                    break                 # => further iterations unnecessary
+                    break                 # and further iterations unnecessary
 
         sequences = []
         for sid in sequence_ids:
