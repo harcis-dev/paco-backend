@@ -1,8 +1,8 @@
 from flask import Flask, jsonify, request
 # from flask_cors import CORS
 import time
-from src.databases.mariadb_services import mariadb_service as mariadb
-from src.databases.mongodb_services import mongodb_service as mongodb
+from databases.mariadb_services import mariadb_service as mariadb
+from databases.mongodb_services import mongodb_service as mongodb
 from src.eventlog.sapeventlog import SapEventLog
 
 app = Flask(__name__)
@@ -27,6 +27,13 @@ def calculate_new_graph():  # put application's code here
     return '', 204
 
 if __name__ == '__main__':
-    mariadb.init_database()  # Connect to MariaDB
-    #mongodb.init_database()  # Connect to MongoDB
     app.run()
+    mariadb.init_database()  # Connect to MariaDB
+    mongodb.init_database()  # Connect to MongoDB
+    # example insert
+    generally = {"nodes": [1, 2, 3], "edges": ['aaaaa', 'b', 'c']}
+    epk = {"nodes": [1, 2, 3], "edges": ['a', 'b', 'c']}
+    bpmn = {"nodes": [1, 2, 3], "edges": ['a', 'b', 'c']}
+    graph_dictionary = {"generally": generally, "epk": epk, "bpmn": bpmn}
+    mongodb.upsert(1, graph_dictionary)
+    # ---
