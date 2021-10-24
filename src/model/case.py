@@ -1,4 +1,4 @@
-class Sequence:
+class Case:
     events = []
 
     def __init__(self, id):
@@ -15,7 +15,7 @@ class Sequence:
         return footprint
 
     def __eq__(self, other):
-        if not isinstance(other, Sequence):
+        if not isinstance(other, Case):
             return False
 
         return self.id == other.id or self.footprint() == other.footprint()

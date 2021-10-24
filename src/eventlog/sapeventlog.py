@@ -1,6 +1,6 @@
 from src.databases.mariadb_services import mariadb_service
 from src.eventlog.eventlog import EventLog
-from src.model.sequence import Sequence
+from src.model.case import Case
 
 
 class Filter:
@@ -14,31 +14,31 @@ class Filter:
 class SapEventLog(EventLog):
 
     '''
-        Reads data from MariaDB and initializes sequences
+        Reads data from MariaDB and initializes cases
     '''
     def read_data(self, filters):
-        sequence_ids = set()
+        case_ids = set()
 
         # array of filters is None or empty
         if filters is None or not filters:
-            sequence_ids = mariadb_service.all_sequences()
+            case_ids = mariadb_service.all_cases()
         else:
             for filter in filters.keys():
-                filter_sequence_ids = mariadb_service.filter_sequences(filter, filters[filter])
-                if filter_sequence_ids and sequence_ids:
-                    sequence_ids = sequence_ids.intersection(filter_sequence_ids)  # take only common items
-                elif filter_sequence_ids:               # if it is the first key
-                    sequence_ids = filter_sequence_ids  # (at first the set of sequences is empty
+                filter_case_ids = mariadb_service.filter_cases(filter, filters[filter])
+                if filter_case_ids and case_ids:
+                    case_ids = case_ids.intersection(filter_case_ids)  # take only common items
+                elif filter_case_ids:               # if it is the first key
+                    case_ids = filter_case_ids  # (at first the set of cases is empty
                                                         # => empty intersection as a result)
 
-                if not sequence_ids:      # if the result set of sequence ids is empty after applying of the filter
-                    sequence_ids = set()  # then there is no element that satisfies the given filter conditions
+                if not case_ids:      # if the result set of case ids is empty after applying of the filter
+                    case_ids = set()  # then there is no element that satisfies the given filter conditions
                     break                 # and further iterations unnecessary
 
-        sequences = []
-        for sid in sequence_ids:
-            s = Sequence(sid)
+        cases = []
+        for sid in case_ids:
+            s = Case(sid)
             s.events = mariadb_service.events(sid)
-            sequences.append(sid)
+            cases.append(sid)
 
-        self.sequences = sequences
+        self.cases = cases

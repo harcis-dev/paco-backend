@@ -4,6 +4,7 @@ import time
 from databases.mariadb_services import mariadb_service as mariadb
 from databases.mongodb_services import mongodb_service as mongodb
 from src.eventlog.sapeventlog import SapEventLog
+from src.graphs.processmodel import ProcessModel
 
 app = Flask(__name__)
 
@@ -18,13 +19,16 @@ def calculate_new_graph():  # put application's code here
     filters = request.args.getlist('filters')
     se = SapEventLog()
     se.read_data(filters)
-    print(se.sequences)
+    print(se.cases)
+    pm = ProcessModel(se.variants())
+    print(pm.G)
 
     end = time.time()
     request_duration = (end - start)
     print(f"\n<--- Execution duration: {request_duration} --->")
     # response.headers.add("Access-Control-Allow-Origin", "*")
     return '', 204
+
 
 if __name__ == '__main__':
     app.run()

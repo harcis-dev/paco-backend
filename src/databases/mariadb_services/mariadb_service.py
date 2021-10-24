@@ -3,7 +3,7 @@ import mariadb
 import sys
 
 # Global variable with connection to MariaDB
-from src.configs import config
+from src.configs import constants as ct
 from src.eventlog.sapeventlog import Filter
 from src.model.event import Event
 
@@ -47,9 +47,9 @@ def get_something_from_database():
 ''' SAP EVENT LOG '''
 
 '''
-    Returns a set of ids of all available sequences in the database
+    Returns a set of ids of all available cases in the database
 '''
-def all_sequences():
+def all_cases():
     if conn is None:
         init_database()
 
@@ -64,7 +64,7 @@ def all_sequences():
         return "Failed"
 
 '''
-    Returns a list of events for the sequence sid with attributes
+    Returns a list of events for the case sid with attributes
     "concept_name", "alt_concept_name", "lifecycle_transition", "org_resource", "time_timestamp", "transaction"
 '''
 def events(sid):
@@ -75,8 +75,8 @@ def events(sid):
     cur.execute(
         "SELECT D.TTEXT AS concept_name, S.BLART AS alt_concept_name, 'complete' AS lifecycle_transition, "
         "USNAM AS org_resource, CONCAT(CPUDT, ' ', CPUTM) AS time_timestamp, TSTCT.TTEXT AS transaction FROM SEQUENCE S "
-        f"LEFT JOIN DOCTYPE D ON (S.BLART=D.BLART) AND D.SPRSL='{config.language}'"
-        f"LEFT JOIN TSTCT ON (S.TCODE=TSTCT.TCODE) AND TSTCT.SPRSL='{config.language}'"
+        f"LEFT JOIN DOCTYPE D ON (S.BLART=D.BLART) AND D.SPRSL='{ct.Configs.LANGUAGE}'"
+        f"LEFT JOIN TSTCT ON (S.TCODE=TSTCT.TCODE) AND TSTCT.SPRSL='{ct.Configs.LANGUAGE}'"
         f"WHERE SEQUENCEID='{sid}' ORDER BY POS")
     try:
         events = []
@@ -92,9 +92,9 @@ def events(sid):
         return "Failed"
 
 '''
-    Returns sequences ids for the given filter and its values (e.g. creditor and creditor id-numbers)
+    Returns cases ids for the given filter and its values (e.g. creditor and creditor id-numbers)
 '''
-def filter_sequences(filter, values):
+def filter_cases(filter, values):
     if conn is None:
         init_database()
 

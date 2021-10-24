@@ -2,11 +2,11 @@ from src.model.variant import Variant
 
 
 class EventLog:
-    sequences = []
+    cases = []
 
     def variants(self):
         variants_by_footprint = {}
-        for s in self.sequences:
-            variants_by_footprint.setdefault(s.footprint(), Variant(s)).add_sequence(s)
+        for c in self.cases:
+            variants_by_footprint.setdefault(c.footprint(), Variant(c)).add_case(c)
 
         return variants_by_footprint.values()
