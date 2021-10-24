@@ -3,7 +3,7 @@ from flask import Flask, jsonify, request
 import time
 from databases.mariadb_services import mariadb_service as mariadb
 from databases.mongodb_services import mongodb_service as mongodb
-from src.eventlog.sapeventlog import SapEventLog
+from src.eventlog.sapdata import SapData
 from src.graphs.processmodel import ProcessModel
 
 app = Flask(__name__)
@@ -14,14 +14,27 @@ app = Flask(__name__)
 
 @app.route('/new-data')
 def calculate_new_graph():  # put application's code here
+    # FIXME DEBUG
+    mariadb.init_database()  # Connect to MariaDB
+    mongodb.init_database()  # Connect to MongoDB
+    # ---
+
     start = time.time()
 
     filters = request.args.getlist('filters')
-    se = SapEventLog()
+    se = SapData()
     se.read_data(filters)
-    print(se.cases)
-    pm = ProcessModel(se.variants())
-    print(pm.G)
+    #print(se.cases)
+    pm = ProcessModel(se.variants)
+    print("Process model initiated, start creating the graph...")
+    pm.create()
+    print(f"Process model created:\n{pm.pm_dict}")
+
+    graph_dictionary = {"dfg": pm.pm_dict, "epc": "", "bpmn": ""}
+
+    mongodb.upsert(1, graph_dictionary)
+
+    print("Graphes stored")
 
     end = time.time()
     request_duration = (end - start)
@@ -32,8 +45,7 @@ def calculate_new_graph():  # put application's code here
 
 if __name__ == '__main__':
     app.run()
-    mariadb.init_database()  # Connect to MariaDB
-    mongodb.init_database()  # Connect to MongoDB
+    '''
     # example insert
     generally = {"nodes": [1, 2, 3], "edges": ['aaaaa', 'b', 'c']}
     epk = {"nodes": [1, 2, 3], "edges": ['a', 'b', 'c']}
@@ -41,3 +53,4 @@ if __name__ == '__main__':
     graph_dictionary = {"generally": generally, "epk": epk, "bpmn": bpmn}
     mongodb.upsert(1, graph_dictionary)
     # ---
+    '''

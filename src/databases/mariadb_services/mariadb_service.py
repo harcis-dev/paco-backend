@@ -4,7 +4,6 @@ import sys
 
 # Global variable with connection to MariaDB
 from src.configs import constants as ct
-from src.eventlog.sapeventlog import Filter
 from src.model.event import Event
 
 conn = None
@@ -18,11 +17,11 @@ def init_database():
     try:
         global conn
         conn = mariadb.connect(
-            user=os.environ['MARIADB_USER'],
-            password=os.environ['MARIADB_PASS'],
-            host=os.environ['MARIADB_HOST'],
-            port=int(os.environ['MARIADB_PORT']),
-            database=os.environ['MARIADB_NAME'],
+            user="root",
+            password="123456",
+            host="127.0.0.1",
+            port=8991,
+            database="sap",
         )
         print("Debug: Database connection established")
         return True
@@ -44,7 +43,7 @@ def get_something_from_database():
         return "Failed"
 
 
-''' SAP EVENT LOG '''
+''' SAPDATA '''
 
 '''
     Returns a set of ids of all available cases in the database

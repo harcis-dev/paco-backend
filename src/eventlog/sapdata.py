@@ -1,6 +1,6 @@
 from src.databases.mariadb_services import mariadb_service
-from src.eventlog.eventlog import EventLog
 from src.model.case import Case
+from src.model.variant import Variant
 
 
 class Filter:
@@ -11,7 +11,9 @@ class Filter:
     FIXED_ASSETS    = "ANLN1"
 
 
-class SapEventLog(EventLog):
+class SapData:
+    cases = []
+    variants = []
 
     '''
         Reads data from MariaDB and initializes cases
@@ -19,6 +21,7 @@ class SapEventLog(EventLog):
     def read_data(self, filters):
         case_ids = set()
 
+        print("Reading data...")
         # array of filters is None or empty
         if filters is None or not filters:
             case_ids = mariadb_service.all_cases()
@@ -29,16 +32,29 @@ class SapEventLog(EventLog):
                     case_ids = case_ids.intersection(filter_case_ids)  # take only common items
                 elif filter_case_ids:               # if it is the first key
                     case_ids = filter_case_ids  # (at first the set of cases is empty
-                                                        # => empty intersection as a result)
+                    # => empty intersection as a result)
 
                 if not case_ids:      # if the result set of case ids is empty after applying of the filter
                     case_ids = set()  # then there is no element that satisfies the given filter conditions
                     break                 # and further iterations unnecessary
+        print("Filters applied")
 
         cases = []
-        for sid in case_ids:
-            s = Case(sid)
-            s.events = mariadb_service.events(sid)
-            cases.append(sid)
+        variants_by_footprint = {}
+
+        print("Start reading events...")
+        for idx, cid in enumerate(case_ids):  # FIXME DEBUG REMOVE IDX
+            print(f"-- case {cid}\t nr. {idx+1}\t out of {len(case_ids)}")
+            c = Case(cid)
+            c.events = mariadb_service.events(cid)
+            cases.append(cid)
+            variants_by_footprint.setdefault(c.footprint(), Variant(c)).add_case(c)
+
+            # FIXME DEBUG
+            if idx == 1000:
+                break
+
+        print("Cases and variants are read out from database")
 
         self.cases = cases
+        self.variants = variants_by_footprint.values()

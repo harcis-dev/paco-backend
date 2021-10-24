@@ -3,4 +3,4 @@ class Configs:
 
 
 class Attributes:
-    FREQUENCY = "Frequency"
+    FREQUENCY = "frequency"

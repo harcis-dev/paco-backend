@@ -1,65 +1,74 @@
-import networkx as nx
-from src.configs import constants as ct
-
-
 class ProcessModel:
-    G = None
+    pm_dict = {}
 
     def __init__(self, variants):
         self.variants = variants
 
     def create(self):
-        G = nx.DiGraph()
-        G.add_node("Start", Frequency=0)
-        G.add_node("End", Frequency=0)
+        pm = {"frequency": {}, "graph": []}
 
-        for variant in self.variants:
-            predecessor = None
+        # adding start and end nodes
+        pm["graph"].append({"data": {"id": "Start", "label": "Start", "type": "node", "variants": []}})
+        pm["graph"].append({"data": {"id": "End", "label": "End", "type": "node", "variants": []}})
 
+        # edges will be added at the end of the graph creation,
+        # so that they are placed separate from the nodes in the back part of the pm["graph"] array
+        edges = []
+
+        print("Starting with graph creation...")
+        for idx, variant in enumerate(self.variants): # FIXME DEBUG REMOVE IDX
+            print(f"-- variant {variant.id}\t nr. {idx+1}\t out of {len(self.variants)}")
+            # adding the variant and its number of cases to count event frequencies in the graph api back end
+            pm["frequency"][variant.id] = len(variant.cases)
+            # start and end nodes are present in all the variants
+            pm["graph"][0]["data"]["variants"].append(variant.id)
+            pm["graph"][1]["data"]["variants"].append(variant.id)
+            predecessor = "Start"
+
+            found_node = False  # if the event is already added to the graph
+            found_edge = False  # if the edge is already present in the graph
             for event in variant.events:
-                freq_attr = event.attributes(ct.Attributes.FREQUENCY)
 
-                '''
-                Note:
-                G.nodes['node'] -> a dict with attributes of the note 'node, e.g. {'Frequency': 3}
-                G['node'] -> a dict with successors with their attributes, e.g. {'succ': {'Frequency': 4}}
-                '''
+                for node in pm["graph"]:
+                    if node["data"]["id"] == event.name:
+                        # add the current variant to the set of variants, in which the current element occurs
+                        node["data"]["variants"].append(variant.id)
+                        found_node = True
+                        break
 
-                # Is the event already present in the graph as a node?
-                try:
-                    current_node = G.nodes[event.id]  # throws KeyError, if node with event id not found
+                if found_node:  # searching for an edge only if the event was found
+                    for edge in edges:
+                        if edge["data"]["source"] == predecessor and edge["data"]["source"] == event.name:
+                            # add the current variant to the set of variants, in which the edge occurs
+                            edge["data"]["variants"].append(variant.id)
+                            found_edge = True
+                            break
+                else:  # the current element appears for the first time
+                    pm["graph"].append(
+                        {"data": {"id": event.name, "label": event.name, "type": "node", "variants": [variant.id]}})
 
-                    # event (node) with that id was found in the graph
-                    current_node[ct.Attributes.FREQUENCY] += freq_attr
-                except KeyError:
-                    # no event (node) with that id in the graph
-                    G.add_node(event.id, Frequency=freq_attr)
+                if not found_edge:
+                    edges.append({"data": {"source": predecessor, "target": event.name, "label": "", "type": "DirectedEdge",
+                                           "variants": [variant.id]}})
 
-                # Is the current event the first event in the case?
-                if predecessor is None:
-                    predecessor = "Start"  # start node is now the predecessor of the current node
-                    G.nodes[predecessor][ct.Attributes.FREQUENCY] += freq_attr
+                predecessor = event.name  # the current element (node) is the predecessor for the next one
 
-                # Is the edge from the predecessor to the current node already present in the graph?
-                try:
-                    edge_pred_currnode = G[predecessor][event.id]
+            # adding an edge from the last event (node) of the variant to the end node
+            found_edge = False
+            if found_node:  # if the last node of the variant was found in the graph
+                for edge in edges:
+                    if edge["data"]["source"] == predecessor and edge["data"]["source"] == "End":
+                        # add the current variant to the set of variants, in which the edge occurs
+                        edge["data"]["variants"].append(variant.id)
+                        found_edge = True
+                        break
 
-                    # the edge was found in the graph
-                    edge_pred_currnode[ct.Attributes.FREQUENCY] += freq_attr
-                except KeyError:
-                    # no edge from the predecessor to the current node was found in the graph
-                    G.add_edge(predecessor, event.id, Frequency=freq_attr)
+            if not found_edge:
+                edges.append(
+                    {"data": {"source": predecessor, "target": "End", "label": "", "type": "DirectedEdge", "variants": [variant.id]}})
 
-                predecessor = event.id
+        pm["graph"] += edges
 
-            # Is the edge from the last event (node) to the end node already present in the graph?
-            try:
-                edge_lastnode_endnode = G[predecessor]["End"]
+        print("graph created")
 
-                # the edge was found in the graph -> edge frequency += last node frequency
-                edge_lastnode_endnode[ct.Attributes.FREQUENCY] += G.nodes[predecessor][ct.Attributes.FREQUENCY]
-            except KeyError:
-                # no edge was found
-                G.add_edge(predecessor, "End", Frequency=G.nodes[predecessor][ct.Attributes.FREQUENCY])
-
-        self.G = G
+        self.pm_dict = pm
