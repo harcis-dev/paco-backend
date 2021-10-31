@@ -1,8 +1,8 @@
 class Case:
-    events = []
 
     def __init__(self, id):
         self.id = id
+        self.events = []
 
     def footprint(self):
         footprint = "["

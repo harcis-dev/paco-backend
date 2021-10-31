@@ -66,7 +66,7 @@ def all_cases():
     Returns a list of events for the case sid with attributes
     "concept_name", "alt_concept_name", "lifecycle_transition", "org_resource", "time_timestamp", "transaction"
 '''
-def events(sid):
+def events(cid):
     if conn is None:
         init_database()
 
@@ -76,12 +76,12 @@ def events(sid):
         "USNAM AS org_resource, CONCAT(CPUDT, ' ', CPUTM) AS time_timestamp, TSTCT.TTEXT AS transaction FROM SEQUENCE S "
         f"LEFT JOIN DOCTYPE D ON (S.BLART=D.BLART) AND D.SPRSL='{ct.Configs.LANGUAGE}'"
         f"LEFT JOIN TSTCT ON (S.TCODE=TSTCT.TCODE) AND TSTCT.SPRSL='{ct.Configs.LANGUAGE}'"
-        f"WHERE SEQUENCEID='{sid}' ORDER BY POS")
+        f"WHERE SEQUENCEID='{cid}' ORDER BY POS")
     try:
         events = []
         for (concept_name, alt_concept_name, lifecycle_transition, org_resource, time_timestamp, transaction) in cur:
             e_name = concept_name if concept_name is not None else alt_concept_name
-            e = Event(e_name)
+            e = Event(f"{e_name}_{cid}", e_name)
             e.attributes = {"lifecycle_transition": lifecycle_transition, "org_resource": org_resource,
                             "time_timestamp": time_timestamp, "transaction": transaction}
             events.append(e)

@@ -12,8 +12,9 @@ class Filter:
 
 
 class SapData:
-    cases = []
-    variants = []
+    def __init__(self):
+        self.cases = []
+        self.variants = []
 
     '''
         Reads data from MariaDB and initializes cases
@@ -48,10 +49,12 @@ class SapData:
             c = Case(cid)
             c.events = mariadb_service.events(cid)
             cases.append(cid)
-            variants_by_footprint.setdefault(c.footprint(), Variant(c)).add_case(c)
+            footprint = c.footprint()
+
+            variants_by_footprint.setdefault(footprint, Variant(c)).cases.append(c)
 
             # FIXME DEBUG
-            if idx == 1000:
+            if idx == 10:
                 break
 
         print("Cases and variants are read out from database")

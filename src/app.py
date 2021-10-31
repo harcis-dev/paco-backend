@@ -14,27 +14,9 @@ app = Flask(__name__)
 
 @app.route('/new-data')
 def calculate_new_graph():  # put application's code here
-    # FIXME DEBUG
-    mariadb.init_database()  # Connect to MariaDB
-    mongodb.init_database()  # Connect to MongoDB
-    # ---
-
     start = time.time()
 
-    filters = request.args.getlist('filters')
-    se = SapData()
-    se.read_data(filters)
-    #print(se.cases)
-    pm = ProcessModel(se.variants)
-    print("Process model initiated, start creating the graph...")
-    pm.create()
-    print(f"Process model created:\n{pm.pm_dict}")
-
-    graph_dictionary = {"dfg": pm.pm_dict, "epc": "", "bpmn": ""}
-
-    mongodb.upsert(1, graph_dictionary)
-
-    print("Graphes stored")
+    init()
 
     end = time.time()
     request_duration = (end - start)
@@ -43,7 +25,26 @@ def calculate_new_graph():  # put application's code here
     return '', 204
 
 
+def init():
+    filters = request.args.getlist('filters')
+    sd = SapData()
+    sd.read_data(filters)
+    print(sd.cases)
+    pm = ProcessModel(sd.variants)
+    print("Process model initiated, start creating the graph...")
+    pm.create()
+    print(f"Process model created:\n{pm.pm_dict}")
+
+    graph_dictionary = {"dfg": pm.pm_dict, "epc": {}, "bpmn": {}}
+
+    mongodb.upsert(1, graph_dictionary)
+
+    print("Graphes stored")
+
+
 if __name__ == '__main__':
+    mariadb.init_database()  # Connect to MariaDB
+    mongodb.init_database()  # Connect to MongoDB
     app.run()
     '''
     # example insert
