@@ -54,7 +54,7 @@ class SapData:
             variants_by_footprint.setdefault(footprint, Variant(c)).cases.append(c)
 
             # FIXME DEBUG
-            if idx == 10:
+            if idx == 20:
                 break
 
         print("Cases and variants are read out from database")

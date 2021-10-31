@@ -37,7 +37,7 @@ def init():
 
     graph_dictionary = {"dfg": pm.pm_dict, "epc": {}, "bpmn": {}}
 
-    mongodb.upsert(1, graph_dictionary)
+    mongodb.upsert("2", graph_dictionary)
 
     print("Graphes stored")
 

@@ -38,17 +38,15 @@ class ProcessModel:
             found_node = False  # if the event is already added to the graph
             found_edge = False  # if the edge is already present in the graph
             for event_idx, event in enumerate(variant.events):
+                # set on false by every new iteration
+                found_node = False
+                found_edge = False
 
                 # find all event ids (for each case) of the current event for the current variant
                 for case in variant.cases:
                     # the current event's index in the variant's list of events
                     # corresponds to the current event's index in the case's list of events
-                    try:
-                        event_ids[case.id] = case.events[event_idx].id  # "case_0" : "event_id_0"
-                    except Exception:
-                        print(f"event_ids:{event_ids}\nevent_idx:{event_idx}\ncase.id:{case.id}\n\nvariant.events:{[event.id for event in variant.events]}"
-                              f"\ncase.events:{[event.id for event in case.events]}")
-                        raise
+                    event_ids[case.id] = case.events[event_idx].id  # "case_0" : "event_id_0"
 
                 for node in pm["graph"]:
                     if node["data"]["id"] == event.name:
@@ -59,7 +57,7 @@ class ProcessModel:
 
                 if found_node:  # searching for an edge only if the event was found/is already in the graph
                     for edge in edges:
-                        if edge["data"]["source"] == predecessor and edge["data"]["source"] == event.name:
+                        if edge["data"]["source"] == predecessor and edge["data"]["target"] == event.name:
                             # add the current variant to the map of variants of the edge
                             edge["data"]["variants"][variant.id] = event_ids_empty
                             found_edge = True
@@ -80,7 +78,7 @@ class ProcessModel:
             found_edge = False
             if found_node:  # if the last node of the variant was found in the graph
                 for edge in edges:
-                    if edge["data"]["source"] == predecessor and edge["data"]["source"] == "End":
+                    if edge["data"]["source"] == predecessor and edge["data"]["target"] == "End":
                         edge["data"]["variants"][variant.id] = event_ids_empty
                         found_edge = True
                         break
