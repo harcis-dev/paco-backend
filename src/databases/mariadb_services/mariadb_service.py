@@ -74,8 +74,8 @@ def events(cid):
     cur.execute(
         "SELECT D.TTEXT AS concept_name, S.BLART AS alt_concept_name, 'complete' AS lifecycle_transition, "
         "USNAM AS org_resource, CONCAT(CPUDT, ' ', CPUTM) AS time_timestamp, TSTCT.TTEXT AS transaction FROM SEQUENCE S "
-        f"LEFT JOIN DOCTYPE D ON (S.BLART=D.BLART) AND D.SPRSL='{ct.Configs.LANGUAGE}'"
-        f"LEFT JOIN TSTCT ON (S.TCODE=TSTCT.TCODE) AND TSTCT.SPRSL='{ct.Configs.LANGUAGE}'"
+        f"LEFT JOIN DOCTYPE D ON (S.BLART=D.BLART) AND D.SPRSL= BINARY '{ct.Configs.LANGUAGE}'"
+        f"LEFT JOIN TSTCT ON (S.TCODE=TSTCT.TCODE) AND TSTCT.SPRSL= BINARY '{ct.Configs.LANGUAGE}'"
         f"WHERE SEQUENCEID='{cid}' ORDER BY POS")
     try:
         events = []

@@ -22,7 +22,7 @@ def calculate_new_graph():  # put application's code here
     request_duration = (end - start)
     print(f"\n<--- Execution duration: {request_duration} --->")
     # response.headers.add("Access-Control-Allow-Origin", "*")
-    return '', 204
+    return 'Der Graph ist fertig!', 204
 
 
 def init():
@@ -37,7 +37,7 @@ def init():
 
     graph_dictionary = {"dfg": pm.pm_dict, "epc": {}, "bpmn": {}}
 
-    mongodb.upsert("2", graph_dictionary)
+    mongodb.upsert("1", graph_dictionary)
 
     print("Graphes stored")
 

@@ -2,7 +2,9 @@ import os
 import sys
 
 from pymongo import MongoClient, errors
+
 conn = None
+
 
 def init_database():
     try:
@@ -22,6 +24,7 @@ def init_database():
     except errors.PyMongoError as e:
         print(f"Error connecting to MongoDB Platform: {e}")
         sys.exit(1)
+
 
 def upsert(id, graph_dictionary):
     graph_database = conn["graph"]
