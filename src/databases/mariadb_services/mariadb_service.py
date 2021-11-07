@@ -3,7 +3,7 @@ import mariadb
 import sys
 
 # Global variable with connection to MariaDB
-from src.configs import constants as ct
+from src.configs import configs as ct
 from src.model.event import Event
 
 conn = None
@@ -48,6 +48,8 @@ def get_something_from_database():
 '''
     Returns a set of ids of all available cases in the database
 '''
+
+
 def all_cases():
     if conn is None:
         init_database()
@@ -62,10 +64,13 @@ def all_cases():
     except StopIteration:
         return "Failed"
 
+
 '''
     Returns a list of events for the case sid with attributes
     "concept_name", "alt_concept_name", "lifecycle_transition", "org_resource", "time_timestamp", "transaction"
 '''
+
+
 def events(cid):
     if conn is None:
         init_database()
@@ -90,16 +95,39 @@ def events(cid):
     except StopIteration:
         return "Failed"
 
+
+
+def functions(cid):
+    if conn is None:
+        init_database()
+
+    stmt = "SELECT TCODE AS concept_name, 'complete' AS lifecycle_transition, USNAM AS org_resource, CONCAT(CPUDT, ' ', CPUTM) AS time_timestamp FROM SEQUENCE WHERE SEQUENCEID = {cid} ORDER BY POS"
+
+    for val in values:
+        stmt += f"{filter}='{val}' OR "
+
+    cur = conn.cursor()
+    cur.execute(stmt[:-4])  # remove the last " OR "
+    res = set()
+    try:
+        for sid in cur:
+            res.add(sid[0])
+        return res
+    except StopIteration:
+        return "Failed"
+
 '''
     Returns cases ids for the given filter and its values (e.g. creditor and creditor id-numbers)
 '''
+
+
 def filter_cases(filter, values):
     if conn is None:
         init_database()
 
     stmt = "SELECT DISTINCT SEQUENCEID FROM SEQUENCE S" \
-                "JOIN BSEG B ON (S.MANDT=B.MANDT AND S.BUKRS=B.BUKRS AND S.GJAHR=B.GJAHR AND S.BELNR=B.BELNR)" \
-                "WHERE "
+           "JOIN BSEG B ON (S.MANDT=B.MANDT AND S.BUKRS=B.BUKRS AND S.GJAHR=B.GJAHR AND S.BELNR=B.BELNR)" \
+           "WHERE "
 
     for val in values:
         stmt += f"{filter}='{val}' OR "

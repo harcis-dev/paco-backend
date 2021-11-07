@@ -1,4 +1,4 @@
-from src.configs import constants as ct
+from src.configs import configs as ct
 from src.model.case import Case
 
 

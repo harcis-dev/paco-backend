@@ -1,4 +1,7 @@
-class ProcessModel:
+from src.configs import configs as ct
+
+
+class DfgBuilder:
 
     def __init__(self, variants):
         self.variants = variants
@@ -8,8 +11,10 @@ class ProcessModel:
         pm = {"graph": []}
 
         # adding start and end nodes
-        pm["graph"].append({"data": {"id": "Start", "label": "Start", "type": "node", "variants": {}}})
-        pm["graph"].append({"data": {"id": "End", "label": "End", "type": "node", "variants": {}}})
+        pm["graph"].append({"data": {"id": ct.ProcessModelLabels.START, "label": ct.ProcessModelLabels.START,
+                                     "type": "node", "variants": {}}})
+        pm["graph"].append({"data": {"id": ct.ProcessModelLabels.END, "label": ct.ProcessModelLabels.END,
+                                     "type": "node", "variants": {}}})
 
         # edges will be added at the end of the graph creation,
         # so that they are placed separate from the nodes in the back part of the pm["graph"] array
@@ -33,7 +38,7 @@ class ProcessModel:
             pm["graph"][0]["data"]["variants"][variant.id] = event_ids_empty
             pm["graph"][1]["data"]["variants"][variant.id] = event_ids_empty
 
-            predecessor = "Start"
+            predecessor = ct.ProcessModelLabels.START
 
             found_node = False  # if the event is already added to the graph
             found_edge = False  # if the edge is already present in the graph
@@ -49,7 +54,7 @@ class ProcessModel:
                     event_ids[case.id] = case.events[event_idx].id  # "case_0" : "event_id_0"
 
                 for node in pm["graph"]:
-                    if node["data"]["id"] == event.name:
+                    if node["data"]["id"] == event.id:
                         # add the current variant to the set of variants, in which the current element occurs
                         node["data"]["variants"][variant.id] = event_ids
                         found_node = True
@@ -57,36 +62,36 @@ class ProcessModel:
 
                 if found_node:  # searching for an edge only if the event was found/is already in the graph
                     for edge in edges:
-                        if edge["data"]["source"] == predecessor and edge["data"]["target"] == event.name:
+                        if edge["data"]["source"] == predecessor.id and edge["data"]["target"] == event.id:
                             # add the current variant to the map of variants of the edge
                             edge["data"]["variants"][variant.id] = event_ids_empty
                             found_edge = True
                             break
                 else:  # the current element appears for the first time
                     pm["graph"].append(
-                        {"data": {"id": event.name, "label": event.name, "type": "node",
+                        {"data": {"id": event.id, "label": event.name, "type": "node",
                                   "variants": {variant.id: event_ids}}})
 
                 if not found_edge:
                     edges.append(
-                        {"data": {"source": predecessor, "target": event.name, "label": "", "type": "DirectedEdge",
+                        {"data": {"source": predecessor, "target": event.id, "label": "", "type": "DirectedEdge",
                                   "variants": {variant.id: event_ids_empty}}})
 
-                predecessor = event.name  # the current element (node) is the predecessor for the next one
+                predecessor = event  # the current element (node) is the predecessor for the next one
 
             # adding an edge from the last event (node) of the variant to the end node
             found_edge = False
             if found_node:  # if the last node of the variant was found in the graph
                 for edge in edges:
-                    if edge["data"]["source"] == predecessor and edge["data"]["target"] == "End":
+                    if edge["data"]["source"] == predecessor.id and edge["data"]["target"] == ct.ProcessModelLabels.END:
                         edge["data"]["variants"][variant.id] = event_ids_empty
                         found_edge = True
                         break
 
             if not found_edge:
                 edges.append(
-                    {"data": {"source": predecessor, "target": "End", "label": "", "type": "DirectedEdge",
-                              "variants": {variant.id: event_ids_empty}}})
+                    {"data": {"source": predecessor.id, "target": ct.ProcessModelLabels.END, "label": "",
+                              "type": "DirectedEdge", "variants": {variant.id: event_ids_empty}}})
 
         pm["graph"] += edges
 

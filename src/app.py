@@ -4,7 +4,8 @@ import time
 from databases.mariadb_services import mariadb_service as mariadb
 from databases.mongodb_services import mongodb_service as mongodb
 from src.eventlog.sapdata import SapData
-from src.graphs.processmodel import ProcessModel
+from src.graphs.dfgbuilder import DfgBuilder
+from src.configs import configs as ct
 
 app = Flask(__name__)
 
@@ -26,11 +27,12 @@ def calculate_new_graph():  # put application's code here
 
 
 def init():
+    ct.set_language('D')
     filters = request.args.getlist('filters')
     sd = SapData()
     sd.read_data(filters)
     print(sd.cases)
-    pm = ProcessModel(sd.variants)
+    pm = DfgBuilder(sd.variants)
     print("Process model initiated, start creating the graph...")
     pm.create()
     print(f"Process model created:\n{pm.pm_dict}")
