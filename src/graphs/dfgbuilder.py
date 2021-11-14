@@ -5,7 +5,7 @@ class DfgBuilder:
 
     def __init__(self, variants):
         self.variants = variants
-        self.pm_dict = {}
+        self.dfg_dict = {}
 
     def create(self):
         pm = {"graph": []}
@@ -97,4 +97,4 @@ class DfgBuilder:
 
         print("graph created")
 
-        self.pm_dict = pm
+        self.dfg_dict = pm
