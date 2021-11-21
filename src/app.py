@@ -1,21 +1,16 @@
-from flask import Flask, jsonify, request
-# from flask_cors import CORS
+from flask import Flask, request
 import time
-import json
+
 from databases.mariadb_services import mariadb_service as mariadb
 from databases.mongodb_services import mongodb_service as mongodb
-from src.eventlog.sapdata import SapData
-from src.graphs.dfgbuilder import DfgBuilder
+from src.eventlog.sapdata import read_sap_data
+from src.graphs.dfgbuilder import create_dfg
+from src.graphs.epcbuilder import create_epc
 from src.configs import configs as ct
-from src.graphs.epcbuilder import EpcBuilder
 
 app = Flask(__name__)
 
-
-# CORS(app, resources={r"/api-py/*": {"origins": "*"}})
-
-
-@app.route('/new-data')
+@app.route('/graphs')
 def calculate_new_graph():  # put application's code here
     start = time.time()
 
@@ -31,21 +26,18 @@ def calculate_new_graph():  # put application's code here
 def init():
     ct.set_language('E')
     filters = request.args.getlist('filters')
-    sd = SapData()
-    sd.read_data(filters)
+    cases, variants = read_sap_data(filters)
     #print(sd.cases)
-    dfg = DfgBuilder(sd.variants)
+    dfg = create_dfg(variants)
     print("Dfg initiated, start creating the graph...")
-    dfg.create()
     #print(f"Dfg created:\n{dfg.dfg_dict}")
 
-    epc = EpcBuilder(sd.variants)
+    epc = create_epc(variants)
     print("Epc initiated, start creating the graph...")
-    epc.create()
 #   print(f"Epc created:\n{epc.epc_dict}")
     #with open('data50dfg.json', 'w') as f:
     #    json.dump(dfg.dfg_dict, f)
-    graph_dictionary = {"dfg": {}, "epc": epc.epc_dict, "bpmn": {}}
+    graph_dictionary = {"dfg": dfg, "epc": epc, "bpmn": {}}
 
     mongodb.upsert("5", graph_dictionary)
 

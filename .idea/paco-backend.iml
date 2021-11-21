@@ -10,4 +10,8 @@
   <component name="PackageRequirementsSettings">
     <option name="removeUnused" value="true" />
   </component>
+  <component name="PyDocumentationSettings">
+    <option name="format" value="NUMPY" />
+    <option name="myDocStringFormat" value="NumPy" />
+  </component>
 </module>
