@@ -4,9 +4,9 @@
 
 
 class EventNode:
-    def __init__(self, event, nodes_idx):
+    def __init__(self, event, node_idx):
         self.event = event
-        self.nodes_idx = nodes_idx
+        self.node_idx = node_idx
         self.predecessors = []
         self.successors = []
 
