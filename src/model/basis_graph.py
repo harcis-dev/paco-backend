@@ -85,7 +85,7 @@ class BasisGraph:
                     new_e = Event(f"{variant.id}_{event_idx}_{var_event.name}", var_event.name)
 
                     self.graph["graph"].append(
-                        {"data": {"id": new_e.id, "label": new_e.name, "type": EpcLabels.EVENT,
+                        {"data": {"id": new_e.id, "label": new_e.name, "type": "node",
                                   "variants": {variant.id: event_ids}}})
                     # remember an index of the inserted node
                     node_idx = len(self.graph["graph"]) - 1
@@ -548,8 +548,7 @@ class BasisGraph:
                 # the graph can be modified
                 if combin_count == len(fp_pas):
                     # contains name of every unique event for each activity
-                    # with a tuple of its index and variants
-                    # (index in the graph dict)
+                    # with its index in the graph dict;
                     # each (unique) node will be added to unique_events
                     # and then newly attached to the graph as a replacement for the removed ones
                     unique_events = {}
@@ -558,27 +557,37 @@ class BasisGraph:
                         # for every event of the activity
                         for node_idx in pa.nodes_path:
                             node_label = self.graph["graph"][node_idx]["data"]["label"]
+                            node_id = self.graph["graph"][node_idx]["data"]["id"]
                             # old nodes on the path from split to join xor will be removed;
                             # at first add unique events to unique_events
                             if node_label not in unique_events:
-                                node_id = self.graph["graph"][node_idx]["data"]["id"]
                                 node_variants = self.graph["graph"][node_idx]["data"]["variants"]
-                                unique_events[node_label] = (node_id, node_variants)
+                                unique_events[node_label] = node_idx
+                                self.graph["graph"].append(
+                                    {"data": {"id": node_id, "label": node_label, "type": "node",
+                                              "variants": node_variants}})
                             else:
+                                # if found, then merge variants of the current event
+                                # with the ones of the identical event in unique_events;
+                                # the event in unique_events is thus a representative
+                                # of all nodes with an equal label
                                 deep_merge_two_dicts(
-                                    unique_events[node_label][1], self.graph["graph"][node_idx]["data"]["variants"])
+                                    self.graph["graph"][unique_events[node_label]]["data"]["variants"],
+                                    self.graph["graph"][node_idx]["data"]["variants"])
 
                             # remove the old node from the graph;
                             # the old ones will be replaced with None so as not to disrupt indexing
                             self.graph["graph"][node_idx] = None
 
-                            # TODO !!!!!!!!!!!!!! REMOVE OLD EDGES  !!!!!!!!!!!!!!
+                            # remove in and out edges to the old node
+                            self.remove_edges(node_id)
 
                     # add the ADD split node
                     xor_node_id = self.graph["graph"][fp_pas[0].start_gateway_idx]["data"]["id"]
                     and_node_id = xor_node_id.replace("XOR", "AND")
                     and_node_label = "∧"
                     and_node_type = "AND"
+                    and_node_variants = {}
                     # if the split XOR serves as a gateway for parallel activities only,
                     # then convert this to an AND operator
                     if fp_pas[0].outgoing_edges_count == len(fp_pas):
@@ -588,14 +597,15 @@ class BasisGraph:
                             "type"] = and_node_type  # TODO DOES THE NUMBER OF VARIANTS REMAIN THE SAME?
                         for event_id, event_variants in unique_events.values():
                             new_edge_and_unique_event = {
-                                "data": {"source": xor_node_id, "target": event_id, "label": "",
+                                "data": {"source": and_node_id, "target": event_id, "label": "",
                                          "type": "DirectedEdge", "variants": event_variants}}
                             self.edges.append(new_edge_and_unique_event)
-                    else:
-                        # insert a split AND operator between the XOR and the parallel activities
+                    else:  # parallel activities are not the only successors of the split XOR
+                        # insert a split AND operator between the split XOR and the parallel activities
                         print("Insert AND split")
 
-                        # merge all the variants to the first event in the dictionary
+                        # as the split AND operator contains all variants of its successors,
+                        # all the unique_event variants will be merged and assigned to it
                         ue_iter = iter(unique_events)
                         and_node_variants = unique_events[next(ue_iter)][1].copy()
                         while True:
@@ -610,20 +620,68 @@ class BasisGraph:
                                       "variants": and_node_variants}})
                         self.events_by_index[and_node_id] = len(self.graph["graph"]) - 1
 
-                        # add an edge between the XOR and the AND node
+                        # add rh edge XOR -> AND
                         new_edge_xor_and = {"data": {"source": xor_node_id, "target": and_node_id, "label": "",
                                                      "type": "DirectedEdge", "variants": and_node_variants}}
                         self.edges.append(new_edge_xor_and)
 
                         # add a new edge from the AND node to every unique event node
                         for event_id, event_variants in unique_events.values():
-                            new_edge_and_unique_event = {"data": {"source": and_node_id, "target": event_id, "label": "",
-                                                         "type": "DirectedEdge", "variants": event_variants}}
+                            new_edge_and_unique_event = {
+                                "data": {"source": and_node_id, "target": event_id, "label": "",
+                                         "type": "DirectedEdge", "variants": event_variants}}
                             self.edges.append(new_edge_and_unique_event)
 
-                        # add the AND join node
-                        # TODO
+                    # add the AND join node
+                    xor_node_id = self.graph["graph"][fp_pas[0].end_gateway_idx]["data"]["id"]
+                    and_node_id = xor_node_id.replace("XOR", "AND")
+                    and_node_label = "∧"
+                    and_node_type = "AND"
+                    # if into the join XOR flow parallel activities only,
+                    # then convert this to an AND operator
+                    if fp_pas[0].incoming_edges_count == len(fp_pas):
+                        self.graph["graph"][fp_pas[0].end_gateway_idx]["data"]["label"] = and_node_label
+                        self.graph["graph"][fp_pas[0].end_gateway_idx]["data"][
+                            "type"] = and_node_type
+                        for event_id, event_variants in unique_events.values():
+                            new_edge_unique_event_and = {
+                                "data": {"source": event_id, "target": and_node_id, "label": "",
+                                         "type": "DirectedEdge", "variants": event_variants}}
+                            self.edges.append(new_edge_unique_event_and)
+                    else:  # parallel activities are not the only predecessors of the join XOR
+                        # insert a join AND operator between the parallel activities and the join XOR
+                        print("Insert AND join")
 
+                        # as the join AND operator contains all variants of its predecessors,
+                        # all the unique_event variants should be merged and assigned to it;
+                        # but this information is already present in the split AND
+                        # and can be reused, if a split AND operator was inserted.
+                        if not and_node_variants:  # if empty / split AND was not inserted
+                            ue_iter = iter(unique_events)
+                            and_node_variants = unique_events[next(ue_iter)][1].copy()
+                            while True:
+                                try:
+                                    deep_merge_two_dicts(and_node_variants, unique_events[next(ue_iter)][1])
+                                except StopIteration:
+                                    break
+
+                        # add the AND node to the graph
+                        self.graph["graph"].append(
+                            {"data": {"id": and_node_id, "label": and_node_label, "type": and_node_type,
+                                      "variants": and_node_variants}})
+                        self.events_by_index[and_node_id] = len(self.graph["graph"]) - 1
+
+                        # add an edge AND -> XOR
+                        new_edge_and_xor = {"data": {"source": and_node_id, "target": xor_node_id, "label": "",
+                                                     "type": "DirectedEdge", "variants": and_node_variants}}
+                        self.edges.append(new_edge_and_xor)
+
+                        # add a new edge from every unique event node to the AND node
+                        for event_id, event_variants in unique_events.values():
+                            new_edge_and_unique_event = {
+                                "data": {"source": event_id, "target": and_node_id, "label": "",
+                                         "type": "DirectedEdge", "variants": event_variants}}
+                            self.edges.append(new_edge_and_unique_event)
 
         print("removing None values")
         temp = []
@@ -641,6 +699,7 @@ class BasisGraph:
 
     '''
         Iterative Depth First Search as basis
+        of parallel activity elimination.
     '''
 
     def find_parallels(self, node_id, pa):
@@ -674,11 +733,27 @@ class BasisGraph:
                     stack.append(edge["data"]["target"])
 
 
+    '''
+        Removes all edges (in and out) from the edges dict for a node id
+    '''
+    def remove_edges(self, node_id):
+        if node_id in self.id_edges["in"]:
+            edges_in_to_remove = self.id_edges["in"][node_id]
+            for edge_idx_to_remove in edges_in_to_remove:
+                self.edges[edge_idx_to_remove] = None
+        if node_id in self.id_edges["out"]:
+            edges_out_to_remove = self.id_edges["out"][node_id]
+            for edge_idx_to_remove in edges_out_to_remove:
+                self.edges[edge_idx_to_remove] = None
+
+
 '''
     Merges dictionaries and nested dictionaries in these dictionaries.
     Helps to deep merge variants.
-    Update the the first dictionary parameter directly, so makes no copy of it.
+    Updates the first dictionary parameter directly, so makes no copy of it.
 '''
+
+
 def deep_merge_two_dicts(x, y):
     z = x
     for key in z:
