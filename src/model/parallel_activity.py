@@ -7,7 +7,7 @@ class ParallelActivity:
         self.labels_path = []
         self.nodes_path = []
         self.block_start_end = {}
-        self.event_count = []
+        self.event_count = {}
 
     def set_start_gateway(self, start_gateway_idx, outgoing_edges_count):
         self.start_gateway_idx = start_gateway_idx

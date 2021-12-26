@@ -49,7 +49,7 @@ def read_sap_data(filters):
         variants_by_footprint.setdefault(footprint, Variant(c)).cases.append(c)
 
         # FIXME DEBUG
-        if idx == 20:
+        if idx == 851:
             break
 
     print("Cases and variants are read out from database")

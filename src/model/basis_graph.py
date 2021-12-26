@@ -518,7 +518,7 @@ class BasisGraph:
         # for every footprint
         for fp, fp_pas in parallels.items():
             # number of events in the footprint activity
-            size = len(fp_pas[0])
+            size = len(fp_pas[0].labels_path)
             # if more than one event then parallelism possible
             if size > 1:
                 '''
@@ -796,8 +796,8 @@ class BasisGraph:
             block[xor_succ_label] = [xor_succ_label]
             cur_succ_id = xor_succ_id
             while cur_succ_id in self.id_edges["out"]:
-                # there is only one successor possible ([0])
-                cur_succ_id = edges_out[cur_succ_id][0]["data"]["target"]
+                # there is only one successor possible
+                cur_succ_id = next(iter(edges_out[cur_succ_id].values()))["data"]["target"]
                 nested_block = None
 
                 if "_XOR_JOIN" in cur_succ_id:
@@ -812,11 +812,12 @@ class BasisGraph:
                     block[xor_succ_label].append(self.get_label_by_id(cur_succ_id))
                 else:  # block, not a node
                     # store a block footprint as its label
-                    block[xor_succ_label].append(str(dict(sorted(nested_block.items()))))
+                    block[xor_succ_label].append(nested_block)
 
+        str_block = str(dict(sorted(block.items())))
         if join_xor_id is not None:
-            return join_xor_id, block
-        return cur_succ_id, block  # join xor or a graph leaf
+            cur_succ_id = join_xor_id
+        return cur_succ_id, str_block  # join xor or a graph leaf
 
     '''
         Removes all edges (in and out) from the edges dict for a node id

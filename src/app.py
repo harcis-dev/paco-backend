@@ -1,3 +1,5 @@
+import json
+
 from flask import Flask, request
 import time
 
@@ -7,6 +9,7 @@ from src.eventlog.sapdata import read_sap_data
 from src.graphs.dfgbuilder import create_dfg
 from src.graphs.epcbuilder import create_epc
 from src.configs import configs as ct
+from src.model.basis_graph import BasisGraph
 
 app = Flask(__name__)
 
@@ -28,18 +31,20 @@ def init():
     filters = request.args.getlist('filters')
     cases, variants = read_sap_data(filters)
     #print(sd.cases)
-    dfg = create_dfg(variants)
-    print("Dfg initiated, start creating the graph...")
+    #dfg = create_dfg(variants)
+    #print("Dfg initiated, start creating the graph...")
     #print(f"Dfg created:\n{dfg.dfg_dict}")
 
-    epc = create_epc(variants)
-    print("Epc initiated, start creating the graph...")
-#   print(f"Epc created:\n{epc.epc_dict}")
-    #with open('data50dfg.json', 'w') as f:
-    #    json.dump(dfg.dfg_dict, f)
-    graph_dictionary = {"dfg": dfg, "epc": epc, "bpmn": {}}
+    #epc = create_epc(variants)
+    #print("Epc initiated, start creating the graph...")
+    #print(f"Epc created:\n{epc.epc_dict}")
+    basis_graph = BasisGraph()
+    basis_graph.create_basis_graph(variants)
+    with open('data200basis.json', 'w') as f:
+        json.dump(basis_graph.graph, f)
+    #graph_dictionary = {"dfg": dfg, "epc": epc, "bpmn": {}}
 
-    mongodb.upsert("5", graph_dictionary)
+    #mongodb.upsert("1", graph_dictionary)
 
     print("Graphes stored")
 
