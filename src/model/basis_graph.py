@@ -14,13 +14,13 @@ class BasisGraph:
         self.end_nodes = {}
         self.events_by_name = {}
         # event id and its index in the graph dictionary
-        # to have access to all event attributes
+        # to have access to all event attributes by an id
         self.events_by_index = {}
 
         # edges will be added at the end of the graph creation,
         # so that they are placed separate from the nodes in the back part of the pm["graph"] array
         self.edges = []
-        # event indexes in the graph array with its edges
+        # event ids with its edges
         self.id_edges = {"in": {}, "out": {}}
 
     def create_basis_graph(self, variants):
@@ -292,11 +292,11 @@ class BasisGraph:
                         and len(self.id_edges["out"][node_id]) != 0 and len(self.id_edges["in"][node_id]) == 0:
                     new_start_nodes[start_node_name][node_id] = node_idx
 
-        self.tart_nodes = new_start_nodes
+        self.start_nodes = new_start_nodes
 
-        for start_node_name in self.tart_nodes:
-            if self.tart_nodes[start_node_name]:  # if the dict of ids is not empty
-                first_start_node_id = next(iter(self.tart_nodes[start_node_name]))  # get one element from the dict
+        for start_node_name in self.start_nodes:
+            if self.start_nodes[start_node_name]:  # if the dict of ids is not empty
+                first_start_node_id = next(iter(self.start_nodes[start_node_name]))  # get one element from the dict
                 xor_node_id = first_start_node_id
 
                 if first_start_node_id in self.id_edges["out"]:
@@ -307,7 +307,7 @@ class BasisGraph:
                         # insert a xor operator between the start node and it's successors
                         xor_node_id = f"{first_start_node_id}_XOR_SPLIT"
                         start_node_variants = \
-                            self.graph["graph"][self.tart_nodes[start_node_name][first_start_node_id]]["data"][
+                            self.graph["graph"][self.start_nodes[start_node_name][first_start_node_id]]["data"][
                                 "variants"]
 
                         # add the xor node to the graph
@@ -497,19 +497,22 @@ class BasisGraph:
                         # create an activity footprint as sorted array of events of an activity and gateway label
                         # so identical paths have the same footprint, regardless of the event order,
                         # if they flow into the same xor node.
-                        footprint = str(pa.labels_path.sort()) + self.graph["graph"][pa.end_gateway_idx]["data"]["id"]
+                        pa.labels_path.sort()
+                        # parallel activities should have the same join xor
+                        pa.labels_path.append(self.graph["graph"][pa.end_gateway_idx]["data"]["id"])
+                        footprint = tuple(pa.labels_path)
 
                         if footprint not in parallels:
                             parallels[footprint] = []
 
-                        # check if an equal activity (with the same events order) is already in parallels
+                        # check if an equal activity (with the same events order, not sorted) is already in parallels
                         already_there = False
                         for parallels_pa in parallels[footprint]:
-                            if str(parallels_pa.labels_path) == str(pa.labels_path):
+                            if parallels_pa.labels_path == pa.labels_path:
                                 already_there = True
 
                         if not already_there:
-                            parallels[footprint] = pa
+                            parallels[footprint].append(pa)
 
         # check if parallelism of activities present in parallels
         # for every footprint
@@ -547,40 +550,47 @@ class BasisGraph:
                 # if parallelism present,
                 # the graph can be modified
                 if combin_count == len(fp_pas):
-                    # contains name of every unique event for each activity
+                    # contains a name of every unique event label for each activity
                     # with its index in the graph dict;
                     # each (unique) node will be added to unique_events
-                    # and then newly attached to the graph as a replacement for the removed ones
+                    # and then newly attached to the graph as a replacement for the removed one(s)
                     unique_events = {}
                     # for every parallel activity with the same footprint
                     for pa in fp_pas:
                         # for every event of the activity
-                        for node_idx in pa.nodes_path:
-                            node_label = self.graph["graph"][node_idx]["data"]["label"]
+                        for path_idx, node_label in enumerate(pa.labels_path):
+                            # Same indices in nodes and labels paths reference same events
+                            node_idx = pa.nodes_path[path_idx]
                             node_id = self.graph["graph"][node_idx]["data"]["id"]
+                            # if the node_id contains "XOR_SPLIT", then it is a block
+                            is_block = "_XOR_SPLIT" in node_label
                             # old nodes on the path from split to join xor will be removed;
                             # at first add unique events to unique_events
                             if node_label not in unique_events:
-                                node_variants = self.graph["graph"][node_idx]["data"]["variants"]
                                 unique_events[node_label] = node_idx
-                                self.graph["graph"].append(
-                                    {"data": {"id": node_id, "label": node_label, "type": "node",
-                                              "variants": node_variants}})
                             else:
-                                # if found, then merge variants of the current event
-                                # with the ones of the identical event in unique_events;
-                                # the event in unique_events is thus a representative
-                                # of all nodes with an equal label
-                                deep_merge_two_dicts(
-                                    self.graph["graph"][unique_events[node_label]]["data"]["variants"],
-                                    self.graph["graph"][node_idx]["data"]["variants"])
+                                # if found, then merge variants of the current event/block
+                                # with the ones of the identical event/block in unique_events;
+                                # the event/block in unique_events is thus a representative
+                                # of all nodes/blocks with an equal label
 
-                            # remove the old node from the graph;
-                            # the old ones will be replaced with None so as not to disrupt indexing
-                            self.graph["graph"][node_idx] = None
+                                if is_block:
+                                    self.deep_merge_two_block(unique_events[node_label], node_idx)
+                                else:
+                                    deep_merge_two_dicts(
+                                        self.graph["graph"][unique_events[node_label]]["data"]["variants"],
+                                        self.graph["graph"][node_idx]["data"]["variants"])
 
-                            # remove in and out edges to the old node
-                            self.remove_edges(node_id)
+                                # remove the old node from the graph;
+                                # the old ones will be replaced with None so as not to disrupt indexing
+                                self.graph["graph"][node_idx] = None
+                                del self.events_by_index[node_idx]
+
+                            # remove in and out edges to the old node/block
+                            if is_block:
+                                self.remove_edges_block(node_id, pa.block_start_end[node_id])
+                            else:
+                                self.remove_edges_event(node_id)
 
                     # add the ADD split node
                     xor_node_id = self.graph["graph"][fp_pas[0].start_gateway_idx]["data"]["id"]
@@ -594,12 +604,17 @@ class BasisGraph:
                         # self.graph["graph"][fp_pas[0].start_gateway_idx]["data"]["id"] = and_node_id -> then should be changed in all edges
                         self.graph["graph"][fp_pas[0].start_gateway_idx]["data"]["label"] = and_node_label
                         self.graph["graph"][fp_pas[0].start_gateway_idx]["data"][
-                            "type"] = and_node_type  # TODO DOES THE NUMBER OF VARIANTS REMAIN THE SAME?
-                        for event_id, event_variants in unique_events.values():
+                            "type"] = and_node_type  # the number of variants remains the same
+                        for unique_node_idx in unique_events.values():
+                            node_id = self.graph["graph"][unique_node_idx]["data"]["id"]
+                            node_variants = self.graph["graph"][unique_node_idx]["data"]["variants"]
                             new_edge_and_unique_event = {
-                                "data": {"source": and_node_id, "target": event_id, "label": "",
-                                         "type": "DirectedEdge", "variants": event_variants}}
+                                "data": {"source": and_node_id, "target": node_id, "label": "",
+                                         "type": "DirectedEdge", "variants": node_variants}}
                             self.edges.append(new_edge_and_unique_event)
+                            edge_idx_and_unique_event = len(self.edges) - 1
+                            self.id_edges["in"][node_id][edge_idx_and_unique_event] = new_edge_and_unique_event
+                            self.id_edges["out"][and_node_id][edge_idx_and_unique_event] = new_edge_and_unique_event
                     else:  # parallel activities are not the only successors of the split XOR
                         # insert a split AND operator between the split XOR and the parallel activities
                         print("Insert AND split")
@@ -607,10 +622,12 @@ class BasisGraph:
                         # as the split AND operator contains all variants of its successors,
                         # all the unique_event variants will be merged and assigned to it
                         ue_iter = iter(unique_events)
-                        and_node_variants = unique_events[next(ue_iter)][1].copy()
+                        node_variants = self.graph["graph"][unique_events[next(ue_iter)]]["data"]["variants"]
+                        and_node_variants = node_variants.copy()
                         while True:
                             try:
-                                deep_merge_two_dicts(and_node_variants, unique_events[next(ue_iter)][1])
+                                node_variants = self.graph["graph"][unique_events[next(ue_iter)]]["data"]["variants"]
+                                deep_merge_two_dicts(and_node_variants, node_variants)
                             except StopIteration:
                                 break
 
@@ -620,17 +637,25 @@ class BasisGraph:
                                       "variants": and_node_variants}})
                         self.events_by_index[and_node_id] = len(self.graph["graph"]) - 1
 
-                        # add rh edge XOR -> AND
+                        # add an edge XOR -> AND
                         new_edge_xor_and = {"data": {"source": xor_node_id, "target": and_node_id, "label": "",
                                                      "type": "DirectedEdge", "variants": and_node_variants}}
                         self.edges.append(new_edge_xor_and)
+                        edge_idx_xor_and = len(self.edges) - 1
+                        self.id_edges["in"][and_node_id][edge_idx_xor_and] = new_edge_xor_and
+                        self.id_edges["out"][xor_node_id][edge_idx_xor_and] = new_edge_xor_and
 
                         # add a new edge from the AND node to every unique event node
-                        for event_id, event_variants in unique_events.values():
+                        for unique_node_idx in unique_events.values():
+                            node_id = self.graph["graph"][unique_node_idx]["data"]["id"]
+                            node_variants = self.graph["graph"][unique_node_idx]["data"]["variants"]
                             new_edge_and_unique_event = {
-                                "data": {"source": and_node_id, "target": event_id, "label": "",
-                                         "type": "DirectedEdge", "variants": event_variants}}
+                                "data": {"source": and_node_id, "target": node_id, "label": "",
+                                         "type": "DirectedEdge", "variants": node_variants}}
                             self.edges.append(new_edge_and_unique_event)
+                            edge_idx_and_unique_event = len(self.edges) - 1
+                            self.id_edges["in"][node_id][edge_idx_and_unique_event] = new_edge_and_unique_event
+                            self.id_edges["out"][and_node_id][edge_idx_and_unique_event] = new_edge_and_unique_event
 
                     # add the AND join node
                     xor_node_id = self.graph["graph"][fp_pas[0].end_gateway_idx]["data"]["id"]
@@ -638,16 +663,21 @@ class BasisGraph:
                     and_node_label = "∧"
                     and_node_type = "AND"
                     # if into the join XOR flow parallel activities only,
-                    # then convert this to an AND operator
+                    # then convert it to an AND operator
                     if fp_pas[0].incoming_edges_count == len(fp_pas):
                         self.graph["graph"][fp_pas[0].end_gateway_idx]["data"]["label"] = and_node_label
                         self.graph["graph"][fp_pas[0].end_gateway_idx]["data"][
                             "type"] = and_node_type
-                        for event_id, event_variants in unique_events.values():
+                        for unique_node_idx in unique_events.values():
+                            node_id = self.graph["graph"][unique_node_idx]["data"]["id"]
+                            node_variants = self.graph["graph"][unique_node_idx]["data"]["variants"]
                             new_edge_unique_event_and = {
-                                "data": {"source": event_id, "target": and_node_id, "label": "",
-                                         "type": "DirectedEdge", "variants": event_variants}}
+                                "data": {"source": node_id, "target": and_node_id, "label": "",
+                                         "type": "DirectedEdge", "variants": node_variants}}
                             self.edges.append(new_edge_unique_event_and)
+                            edge_idx_unique_event_and = len(self.edges) - 1
+                            self.id_edges["in"][and_node_id][edge_idx_unique_event_and] = new_edge_unique_event_and
+                            self.id_edges["out"][node_id][edge_idx_unique_event_and] = new_edge_unique_event_and
                     else:  # parallel activities are not the only predecessors of the join XOR
                         # insert a join AND operator between the parallel activities and the join XOR
                         print("Insert AND join")
@@ -658,10 +688,12 @@ class BasisGraph:
                         # and can be reused, if a split AND operator was inserted.
                         if not and_node_variants:  # if empty / split AND was not inserted
                             ue_iter = iter(unique_events)
-                            and_node_variants = unique_events[next(ue_iter)][1].copy()
+                            node_variants = self.graph["graph"][unique_events[next(ue_iter)]]["data"]["variants"]
+                            and_node_variants = node_variants.copy()
                             while True:
                                 try:
-                                    deep_merge_two_dicts(and_node_variants, unique_events[next(ue_iter)][1])
+                                    node_variants = self.graph["graph"][unique_events[next(ue_iter)]]["data"]["variants"]
+                                    deep_merge_two_dicts(and_node_variants, node_variants)
                                 except StopIteration:
                                     break
 
@@ -675,13 +707,21 @@ class BasisGraph:
                         new_edge_and_xor = {"data": {"source": and_node_id, "target": xor_node_id, "label": "",
                                                      "type": "DirectedEdge", "variants": and_node_variants}}
                         self.edges.append(new_edge_and_xor)
+                        edge_idx_and_xor = len(self.edges) - 1
+                        self.id_edges["in"][xor_node_id][edge_idx_and_xor] = new_edge_and_xor
+                        self.id_edges["out"][and_node_id][edge_idx_and_xor] = new_edge_and_xor
 
                         # add a new edge from every unique event node to the AND node
-                        for event_id, event_variants in unique_events.values():
-                            new_edge_and_unique_event = {
-                                "data": {"source": event_id, "target": and_node_id, "label": "",
-                                         "type": "DirectedEdge", "variants": event_variants}}
-                            self.edges.append(new_edge_and_unique_event)
+                        for unique_node_idx in unique_events.values():
+                            node_id = self.graph["graph"][unique_node_idx]["data"]["id"]
+                            node_variants = self.graph["graph"][unique_node_idx]["data"]["variants"]
+                            new_edge_unique_event_and = {
+                                "data": {"source": node_id, "target": and_node_id, "label": "",
+                                         "type": "DirectedEdge", "variants": node_variants}}
+                            self.edges.append(new_edge_unique_event_and)
+                            edge_idx_unique_event_and = len(self.edges) - 1
+                            self.id_edges["in"][and_node_id][edge_idx_unique_event_and] = new_edge_unique_event_and
+                            self.id_edges["out"][node_id][edge_idx_unique_event_and] = new_edge_unique_event_and
 
         print("removing None values")
         temp = []
@@ -692,7 +732,7 @@ class BasisGraph:
 
         for edge in self.edges:
             if edge is not None:
-                print(f'{edge["data"]["source"]} -> {edge["data"]["target"]}')
+                #print(f'{edge["data"]["source"]} -> {edge["data"]["target"]}')
                 self.graph["graph"].append(edge)
 
         print("graph created")
@@ -716,35 +756,137 @@ class BasisGraph:
         edges_out = self.id_edges["out"]
 
         while len(stack):
-            # Next node
+            # next node
             node_id = stack.pop()
             node_idx = self.events_by_index[node_id]
 
-            if "_XOR_" in node_id:
+            if "_XOR_JOIN" in node_id:
                 pa.set_end_gateway(node_idx, len(edges_in[node_id]))
-                continue
+                break
 
-            # add an event to the parallel activity
-            node_label = self.graph["graph"][node_idx]["data"]["label"]
+            if "_XOR_SPLIT" in node_id:
+                # node_id is now a join xor of the block or a graph leaf
+                join_xor_id, node_label = self.add_block(node_id, pa)
+                # node_id is split xor
+                pa.block_start_end[node_id] = join_xor_id
+                node_id = join_xor_id
+            else:
+                node_label = self.graph["graph"][node_idx]["data"]["label"]
+
+            # add an event label or a block footprint to the parallel activity
             pa.add_event(node_idx, node_label)
 
             if node_id in edges_out:
                 for edge_idx, edge in edges_out[node_id].items():
                     stack.append(edge["data"]["target"])
 
+    '''
+        pa blocks: [{E: [E, D], J: [J, {H: [H,...], F: {F, G}}]}]
+    '''
+
+    def add_block(self, split_xor_id, pa):
+        block = {}
+        edges_out = self.id_edges["out"]
+        join_xor_id = None
+
+        for edge_idx, edge in edges_out[split_xor_id].items():
+            xor_succ_id = edge["data"]["target"]  # xor successor (cannot be another xor)
+            xor_succ_label = self.get_label_by_id(xor_succ_id)
+            # remember the first node of every xor branch to sort the block
+            block[xor_succ_label] = [xor_succ_label]
+            cur_succ_id = xor_succ_id
+            while cur_succ_id in self.id_edges["out"]:
+                # there is only one successor possible ([0])
+                cur_succ_id = edges_out[cur_succ_id][0]["data"]["target"]
+                nested_block = None
+
+                if "_XOR_JOIN" in cur_succ_id:
+                    join_xor_id = cur_succ_id
+                    break
+
+                # a nested block
+                if "_XOR_SPLIT" in cur_succ_id:
+                    cur_succ_id, nested_block = self.add_block(cur_succ_id, pa)
+
+                if nested_block is None:  # node, not a block
+                    block[xor_succ_label].append(self.get_label_by_id(cur_succ_id))
+                else:  # block, not a node
+                    # store a block footprint as its label
+                    block[xor_succ_label].append(str(dict(sorted(nested_block.items()))))
+
+        if join_xor_id is not None:
+            return join_xor_id, block
+        return cur_succ_id, block  # join xor or a graph leaf
 
     '''
         Removes all edges (in and out) from the edges dict for a node id
     '''
-    def remove_edges(self, node_id):
-        if node_id in self.id_edges["in"]:
-            edges_in_to_remove = self.id_edges["in"][node_id]
-            for edge_idx_to_remove in edges_in_to_remove:
-                self.edges[edge_idx_to_remove] = None
-        if node_id in self.id_edges["out"]:
-            edges_out_to_remove = self.id_edges["out"][node_id]
+
+    def remove_edges_event(self, event_id):
+        self.remove_edges(event_id, "in")
+        self.remove_edges(event_id, "out")
+
+    def remove_edges_block(self, block_start_id, block_end_id):
+        self.remove_edges(block_start_id, "in")
+        self.remove_edges(block_end_id, "out")
+
+    def remove_edges(self, node_id, direction):
+        if node_id in self.id_edges[direction]:
+            edges_out_to_remove = self.id_edges[direction][node_id]
             for edge_idx_to_remove in edges_out_to_remove:
                 self.edges[edge_idx_to_remove] = None
+                del self.id_edges[direction][node_id][edge_idx_to_remove]
+
+    def get_label_by_id(self, node_id):
+        node_idx = self.events_by_index[node_id]
+        return self.graph["graph"][node_idx]["data"]["label"]
+
+    def deep_merge_two_block(self, this_block_xor_idx, other_block_xor_idx):
+        # merge split xor operators of the two block
+        deep_merge_two_dicts(
+            self.graph["graph"][this_block_xor_idx]["data"]["variants"],
+            self.graph["graph"][other_block_xor_idx]["data"]["variants"])
+        this_block_xor_id = self.graph["graph"][this_block_xor_idx]["data"]["id"]
+        other_block_xor_id = self.graph["graph"][other_block_xor_idx]["data"]["id"]
+        edges_out = self.id_edges["out"]
+        this_join_xor_id = None
+        other_join_xor_id = None
+        # the blocks are identical, so it is possible to merge block nodes one by one
+        for (this_edge_idx, this_edge), (other_edge_idx, other_edge) in zip(edges_out[this_block_xor_id].items(),
+                                                                            edges_out[other_block_xor_id].items()):
+            this_xor_succ_id = this_edge["data"]["target"]
+            other_xor_succ_id = other_edge["data"]["target"]
+            this_xor_succ_idx = self.get_label_by_id(this_xor_succ_id)
+            other_xor_succ_idx = self.get_label_by_id(other_xor_succ_id)
+            deep_merge_two_dicts(
+                self.graph["graph"][this_xor_succ_idx]["data"]["variants"],
+                self.graph["graph"][other_xor_succ_idx]["data"]["variants"])
+            this_cur_succ_id = this_xor_succ_id
+            other_cur_succ_id = other_xor_succ_id
+            # blocks are identical, so it's enough to check for one of them
+            while this_cur_succ_id in self.id_edges["out"]:
+                this_cur_succ_id = edges_out[this_cur_succ_id][0]["data"]["target"]
+                other_cur_succ_id = edges_out[other_cur_succ_id][0]["data"]["target"]
+                this_cur_succ_idx = self.get_label_by_id(this_cur_succ_id)
+                other_cur_succ_idx = self.get_label_by_id(other_cur_succ_id)
+
+                # a nested block;
+                # split xors will be merged in the recursive call
+                if "_XOR_SPLIT" in this_cur_succ_id:
+                    this_cur_succ_id, other_cur_succ_id = self.deep_merge_two_block(this_cur_succ_idx,
+                                                                                    other_block_xor_idx)
+                    continue  # join xors were already merged in the recursive call
+
+                deep_merge_two_dicts(
+                    self.graph["graph"][this_cur_succ_idx]["data"]["variants"],
+                    self.graph["graph"][other_cur_succ_idx]["data"]["variants"])
+
+                if "_XOR_JOIN" in this_cur_succ_id:
+                    this_join_xor_id = this_cur_succ_id
+                    other_join_xor_id = other_cur_succ_id
+                    break
+
+        return this_join_xor_id, other_join_xor_id
 
 
 '''
