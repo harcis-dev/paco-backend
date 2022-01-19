@@ -30,6 +30,8 @@ def init():
     ct.set_language('E')
     filters = request.args.getlist('filters')
     cases, variants = read_sap_data(filters)
+
+    ''' DEBUG '''
     #print(sd.cases)
     #dfg = create_dfg(variants)
     #print("Dfg initiated, start creating the graph...")
@@ -48,10 +50,11 @@ def init():
 
     print("Graphes stored")
 
-
+import sys
 if __name__ == '__main__':
-    mariadb.init_database()  # Connect to MariaDB
-    mongodb.init_database()  # Connect to MongoDB
+    #mariadb.init_database()  # Connect to MariaDB
+    #mongodb.init_database()  # Connect to MongoDB
+    sys.setrecursionlimit(2000)
     app.run()
     '''
     # example insert

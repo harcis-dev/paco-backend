@@ -101,13 +101,8 @@ def functions(cid):
     if conn is None:
         init_database()
 
-    stmt = "SELECT TCODE AS concept_name, 'complete' AS lifecycle_transition, USNAM AS org_resource, CONCAT(CPUDT, ' ', CPUTM) AS time_timestamp FROM SEQUENCE WHERE SEQUENCEID = {cid} ORDER BY POS"
-
-    for val in values:
-        stmt += f"{filter}='{val}' OR "
-
     cur = conn.cursor()
-    cur.execute(stmt[:-4])  # remove the last " OR "
+    cur.execute("SELECT TCODE AS concept_name, 'complete' AS lifecycle_transition, USNAM AS org_resource, CONCAT(CPUDT, ' ', CPUTM) AS time_timestamp FROM SEQUENCE WHERE SEQUENCEID = {cid} ORDER BY POS")
     res = set()
     try:
         for sid in cur:

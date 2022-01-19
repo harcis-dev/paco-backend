@@ -475,7 +475,8 @@ class BasisGraph:
         print("Split AND")
 
         # join parallel activities (paths of events) with AND-connector
-        parallels = {}
+        parallels_footprints = []
+        parallels_pa = []
 
         for node_idx, node in enumerate(self.graph["graph"]):
             node_id = node["data"]["id"]
@@ -497,28 +498,31 @@ class BasisGraph:
                         # create an activity footprint as sorted array of events of an activity and gateway label
                         # so identical paths have the same footprint, regardless of the event order,
                         # if they flow into the same xor node.
-                        pa.labels_path.sort()
                         # parallel activities should have the same join xor
-                        pa.labels_path.append(self.graph["graph"][pa.end_gateway_idx]["data"]["id"])
-                        footprint = tuple(pa.labels_path)
+                        pa.id_path.add(self.graph["graph"][pa.end_gateway_idx]["data"]["id"])
 
-                        if footprint not in parallels:
-                            parallels[footprint] = []
+                        footprint = pa.id_path
 
-                        # check if an equal activity (with the same events order, not sorted) is already in parallels
-                        already_there = False
-                        for parallels_pa in parallels[footprint]:
-                            if parallels_pa.labels_path == pa.labels_path:
-                                already_there = True
+                        found_idx = -1
+                        for pf_idx, par_footprint in enumerate(parallels_footprints):
+                            # as the order doesn't matter (blocks will be correctly compared)
+                            if ((len(footprint) == len(par_footprint)) and
+                                    (all(i in par_footprint for i in footprint))):
+                                found_idx = pf_idx
 
-                        if not already_there:
-                            parallels[footprint].append(pa)
+                        if found_idx != -1:
+                            # check if an equal activity (with the same events order) is already in parallels
+                            if pa not in parallels_pa[found_idx]:
+                                parallels_pa[found_idx].append(pa)
+                        else:
+                            parallels_footprints.append(footprint)
+                            parallels_pa.append([pa])
 
         # check if parallelism of activities present in parallels
         # for every footprint
-        for fp, fp_pas in parallels.items():
+        for fp_pas in parallels_pa:
             # number of events in the footprint activity
-            size = len(fp_pas[0].labels_path)
+            size = len(fp_pas[0].id_path)
             # if more than one event then parallelism possible
             if size > 1:
                 '''
@@ -558,10 +562,10 @@ class BasisGraph:
                     # for every parallel activity with the same footprint
                     for pa in fp_pas:
                         # for every event of the activity
-                        for path_idx, node_label in enumerate(pa.labels_path):
+                        for path_idx, node_id in enumerate(pa.id_path):
                             # Same indices in nodes and labels paths reference same events
                             node_idx = pa.nodes_path[path_idx]
-                            node_id = self.graph["graph"][node_idx]["data"]["id"]
+                            node_label = self.graph["graph"][node_idx]["data"]["label"]
                             # if the node_id contains "XOR_SPLIT", then it is a block
                             is_block = "_XOR_SPLIT" in node_label
                             # old nodes on the path from split to join xor will be removed;
@@ -759,6 +763,7 @@ class BasisGraph:
             # next node
             node_id = stack.pop()
             node_idx = self.events_by_index[node_id]
+            event_id = node_id
 
             if "_XOR_JOIN" in node_id:
                 pa.set_end_gateway(node_idx, len(edges_in[node_id]))
@@ -766,28 +771,27 @@ class BasisGraph:
 
             if "_XOR_SPLIT" in node_id:
                 # node_id is now a join xor of the block or a graph leaf
-                join_xor_id, node_label = self.add_block(node_id, pa)
+                end_node_id, event_id = self.add_block_iter(node_id)
                 # node_id is split xor
-                pa.block_start_end[node_id] = join_xor_id
-                node_id = join_xor_id
-            else:
-                node_label = self.graph["graph"][node_idx]["data"]["label"]
+                pa.block_start_end[node_id] = end_node_id
+                # node_id is now join xor
+                node_id = end_node_id
 
             # add an event label or a block footprint to the parallel activity
-            pa.add_event(node_idx, node_label)
+            pa.add_event(node_idx, event_id)
 
-            if node_id in edges_out:
-                for edge_idx, edge in edges_out[node_id].items():
-                    stack.append(edge["data"]["target"])
+            stack.append(next(iter(edges_out[node_id].values()))["data"]["target"])
 
     '''
+    RECURSIVE VERSION
         pa blocks: [{E: [E, D], J: [J, {H: [H,...], F: {F, G}}]}]
     '''
 
-    def add_block(self, split_xor_id, pa):
+    def add_block_rec(self, split_xor_id):
         block = {}
         edges_out = self.id_edges["out"]
         join_xor_id = None
+        cur_succ_id = None
 
         for edge_idx, edge in edges_out[split_xor_id].items():
             xor_succ_id = edge["data"]["target"]  # xor successor (cannot be another xor)
@@ -798,26 +802,123 @@ class BasisGraph:
             while cur_succ_id in self.id_edges["out"]:
                 # there is only one successor possible
                 cur_succ_id = next(iter(edges_out[cur_succ_id].values()))["data"]["target"]
-                nested_block = None
 
                 if "_XOR_JOIN" in cur_succ_id:
                     join_xor_id = cur_succ_id
+                    block[xor_succ_label].append(self.get_label_by_id(join_xor_id))
                     break
 
                 # a nested block
                 if "_XOR_SPLIT" in cur_succ_id:
-                    cur_succ_id, nested_block = self.add_block(cur_succ_id, pa)
-
-                if nested_block is None:  # node, not a block
-                    block[xor_succ_label].append(self.get_label_by_id(cur_succ_id))
-                else:  # block, not a node
+                    cur_succ_id, nested_block = self.add_block_rec(cur_succ_id)
                     # store a block footprint as its label
                     block[xor_succ_label].append(nested_block)
+                else:
+                    block[xor_succ_label].append(self.get_label_by_id(cur_succ_id))
 
+
+        # block footprint will be saved as a node label of pa (one block = one pa node)
         str_block = str(dict(sorted(block.items())))
         if join_xor_id is not None:
             cur_succ_id = join_xor_id
         return cur_succ_id, str_block  # join xor or a graph leaf
+
+    '''
+    ITERATIVE VERSION (with stack)
+        pa blocks: [{E: [E, D], J: [J, {H: [H,...], F: {F, G}}]}]
+    '''
+
+    def add_block_iter(self, split_xor_id):
+        # create a stack for the frist node of nested blocks
+        stack = []
+
+        block = {}
+        # push a tuple of the split_xor and a reference to "block"
+        stack.append((split_xor_id, block))
+
+        edges_out = self.id_edges["out"]
+        end_node_id = None
+
+        while len(stack):
+            # next nested block (opening xor node)
+            block_xor_id, curr_block = stack.pop()
+
+            join_xor_id = None
+
+            for edge_idx, edge in edges_out[block_xor_id].items():
+                xor_succ_id = edge["data"]["target"]  # xor successor (cannot be another xor)
+                xor_succ_label = self.get_label_by_id(xor_succ_id)
+                # remember the first node of every xor branch to sort the block
+                curr_block[xor_succ_label] = [xor_succ_label]
+                cur_succ_id = xor_succ_id
+                while cur_succ_id in self.id_edges["out"]:  # condition for graph leaves; on join xor will be breaked
+                    # there is only one successor possible (for not split xor nodes)
+                    cur_succ_id = next(iter(edges_out[cur_succ_id].values()))["data"]["target"]
+
+                    if "_XOR_JOIN" in cur_succ_id:
+                        join_xor_id = cur_succ_id
+                        curr_block[xor_succ_label].append(self.get_label_by_id(join_xor_id))
+                        break
+
+                    # a nested block
+                    if "_XOR_SPLIT" in cur_succ_id:
+                        curr_block[xor_succ_label].append({})
+                        # block will be filled via reference
+                        # code example https://replit.com/@IliaBudnikov/addingblockviaref#main.py
+                        stack.append((cur_succ_id, curr_block[xor_succ_label][:-1]))
+                        # skipping the block, as it will be traced in the next stack iteration
+                        cur_succ_id = self.find_block_end(cur_succ_id)
+                    else:
+                        curr_block[xor_succ_label].append(self.get_label_by_id(cur_succ_id))
+
+                # only set the first join xor found;
+                # otherwise, the end node can be set from one of the nested blocks.
+                if end_node_id is None:
+                    if join_xor_id is not None:
+                        end_node_id = join_xor_id
+                    else: end_node_id = cur_succ_id
+
+        return end_node_id, block  # join xor or a graph leaf
+
+    '''
+        Finds the end of the block (join xor id or in case of non-existence one of the leaves)
+    '''
+    def find_block_end(self, node_id):
+        # create a stack for dfs
+        stack = []
+
+        # a node cannot be revisited in this type of graph:
+        # if two or more paths lead to the same node,
+        # then this node is an operator (in this case xor).
+
+        # push the current source node
+        stack.append(node_id)
+        edges_out = self.id_edges["out"]
+
+        # a nested block detected -> +1,
+        # the end (leaf of join xor) of a block reached and the value > 0? -> -1
+        # a join xor found and the value is 0? -> break, else continue searching
+        # no more successors and no join xors were found? -> return None
+        block_counter = 0
+
+        while len(stack):
+            # next node
+            node_id = stack.pop()
+
+            if "_XOR_JOIN" in node_id:
+                if block_counter == 0:
+                    return node_id
+                else:
+                    block_counter -= 1
+
+            if "_XOR_SPLIT" in node_id:
+                block_counter += 1
+
+            if node_id in edges_out:
+                for edge_idx, edge in edges_out[node_id].items():
+                    stack.append(edge["data"]["target"])
+
+        return node_id
 
     '''
         Removes all edges (in and out) from the edges dict for a node id
