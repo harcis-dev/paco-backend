@@ -1,7 +1,6 @@
 import math
 from itertools import islice
 
-from src.configs.configs import EpcLabels
 from src.model.event import Event
 from src.model.eventnode import EventNode
 from src.model.parallel_activity import ParallelActivity
@@ -202,6 +201,7 @@ class BasisGraph:
 
                     # remove the old edge from the graph;
                     # the old ones will be replaced with None so as not to disrupt indexing
+                    #print(f'EDGE REMOVED: {self.edges[edge_idx]}')
                     self.edges[edge_idx] = None
 
                     # remove the old in-edges from the target node
@@ -270,6 +270,7 @@ class BasisGraph:
 
                     # remove the old edge from the graph;
                     # the old ones will be replaced with None so as not to disrupt indexing
+                    #print(f'EDGE REMOVED: {self.edges[edge_idx]}')
                     self.edges[edge_idx] = None
 
                     # remove the old out-edge from the source node
@@ -342,6 +343,7 @@ class BasisGraph:
 
                             # remove the old edge from the graph;
                             # the old ones will be replaced with None so as not to disrupt indexing
+                            #print(f'EDGE REMOVED: {self.edges[edge_idx]}')
                             self.edges[edge_idx] = None
 
                             # remove the old in-edges from the target node
@@ -372,6 +374,7 @@ class BasisGraph:
 
                         # remove the old edge from the graph;
                         # the old ones will be replaced with None so as not to disrupt indexing
+                        #print(f'EDGE REMOVED: {self.edges[edge_idx]}')
                         self.edges[edge_idx] = None
 
                         # remove the old in-edges from the target node
@@ -437,6 +440,7 @@ class BasisGraph:
 
                             # remove the old edge from the graph;
                             # the old ones will be replaced with None so as not to disrupt indexing
+                            #print(f'EDGE REMOVED: {self.edges[edge_idx]}')
                             self.edges[edge_idx] = None
 
                             # remove the old out-edge from the source node
@@ -467,6 +471,7 @@ class BasisGraph:
 
                         # remove the old edge from the graph;
                         # the old ones will be replaced with None so as not to disrupt indexing
+                        #print(f'EDGE REMOVED: {self.edges[edge_idx]}')
                         self.edges[edge_idx] = None
 
                         # remove the old out-edge from the source node
@@ -547,7 +552,7 @@ class BasisGraph:
 
                 # count the frequency for one of footprint activities, as it's equal for all identical activities
                 denom = 1
-                for event_count in fp_pas[0].event_count.values():
+                for event_count in fp_pas[0].event_count:
                     denom *= math.factorial(event_count)
                 combin_count = math.factorial(size) / denom
 
@@ -727,17 +732,82 @@ class BasisGraph:
                             self.id_edges["in"][and_node_id][edge_idx_unique_event_and] = new_edge_unique_event_and
                             self.id_edges["out"][node_id][edge_idx_unique_event_and] = new_edge_unique_event_and
 
-        print("removing None values")
-        temp = []
+        # TODO OPTIMIZE
+        print("Adding the start node")
+        start_nodes = {}
+        all_variants = {}
         for node in self.graph["graph"]:
-            if node is not None:
-                temp.append(node)
-        self.graph["graph"] = temp
+            node_id = node["data"]["id"]
+            node_variants = node["data"]["variants"]
+            # if no in-edges then a start node
+            if not (node_id in self.id_edges["in"] and self.id_edges["in"][node_id]):
+                start_nodes[node_id] = node_variants
 
-        for edge in self.edges:
-            if edge is not None:
-                #print(f'{edge["data"]["source"]} -> {edge["data"]["target"]}')
-                self.graph["graph"].append(edge)
+            # add variants of the current node to all variants
+            # {"2": {"001_1": "", "001_2": ""},
+            #  "3": {"001_3": ""}}
+            # and
+            # {"2": {"001_1": "", "001_3": ""}}
+            # equals
+            # {"2": {"001_1": "", "001_2": "", "001_3": ""},
+            #  "3": {"001_3": ""}}
+            for variant_id in node_variants:
+                # "update" is union of dictionary keys;
+                # if there is no all_variants[variant_id]
+                # it just takes node_variants[variant_id]
+                all_variants.setdefault(variant_id, {}).update(node_variants[variant_id])
+
+        artificial_start_node = {"data": {"id": "start", "label": "Start", "type": "node",
+                                          "variants": all_variants}}
+        self.graph["graph"].insert(0,artificial_start_node)
+        print("Start node added")
+
+        if len(start_nodes) > 1:
+            xor_node_id = f"start_XOR_SPLIT"
+
+            # add the xor node to the graph
+            self.graph["graph"].append(
+                {"data": {"id": xor_node_id, "label": "X", "type": "XOR",
+                          "variants": all_variants}})
+            print("Split xor added")
+
+            # add an edge between the start node and the xor node
+            new_edge_start_xor = {
+                "data": {"source": "start", "target": xor_node_id, "label": "",
+                         "type": "DirectedEdge", "variants": all_variants}}
+            self.edges.append(new_edge_start_xor)
+
+            edges_idx_start_xor = len(self.edges) - 1
+            self.id_edges["out"]["start"] = {}
+            self.id_edges["out"]["start"][edges_idx_start_xor] = new_edge_start_xor
+            self.id_edges["in"][xor_node_id] = {}
+            self.id_edges["in"][xor_node_id][edges_idx_start_xor] = new_edge_start_xor
+
+            # edges from xor node to successors of the start node
+            self.id_edges["out"][xor_node_id] = {}
+            for startsucc_id in start_nodes:
+                new_edge_xor_startsucc = {
+                    "data": {"source": xor_node_id, "target": startsucc_id, "label": "",
+                             "type": "DirectedEdge", "variants": start_nodes[startsucc_id]}}
+                self.edges.append(new_edge_xor_startsucc)
+                print(f"Start to {startsucc_id} edge added")
+
+                edges_idx_xor_startsucc = len(self.edges) - 1
+                self.id_edges["out"][xor_node_id][edges_idx_xor_startsucc] = new_edge_xor_startsucc
+                self.id_edges["in"][startsucc_id] = {}
+                self.id_edges["in"][startsucc_id][edges_idx_xor_startsucc] = new_edge_xor_startsucc
+        else:
+            # add an edge from the start node to its successor
+            target_node = next(iter(start_nodes))
+            new_edge_start_startsucc = {"data": {"source": "start", "target": target_node, "label": "",
+                                                 "type": "DirectedEdge", "variants": start_nodes[target_node]}}
+            self.edges.append(new_edge_start_startsucc)
+            print(f"Start to {target_node} edge added")
+            edges_idx_start_startsucc = len(self.edges) - 1
+            self.id_edges["out"]["start"] = {}
+            self.id_edges["out"]["start"][edges_idx_start_startsucc] = new_edge_start_startsucc
+            self.id_edges["in"][target_node] = {}
+            self.id_edges["in"][target_node][edges_idx_start_startsucc] = new_edge_start_startsucc
 
         print("graph created")
 
@@ -780,7 +850,10 @@ class BasisGraph:
             # add an event label or a block footprint to the parallel activity
             pa.add_event(node_idx, event_id)
 
-            stack.append(next(iter(edges_out[node_id].values()))["data"]["target"])
+            try:
+                # edges_out throws an exception, if a node has no successors (=> the node is a leaf)
+                stack.append(next(iter(edges_out[node_id].values()))["data"]["target"])
+            except: pass
 
     '''
     RECURSIVE VERSION
@@ -865,7 +938,7 @@ class BasisGraph:
                         curr_block[xor_succ_label].append({})
                         # block will be filled via reference
                         # code example https://replit.com/@IliaBudnikov/addingblockviaref#main.py
-                        stack.append((cur_succ_id, curr_block[xor_succ_label][:-1]))
+                        stack.append((cur_succ_id, curr_block[xor_succ_label][-1]))
                         # skipping the block, as it will be traced in the next stack iteration
                         cur_succ_id = self.find_block_end(cur_succ_id)
                     else:
@@ -936,6 +1009,7 @@ class BasisGraph:
         if node_id in self.id_edges[direction]:
             edges_out_to_remove = self.id_edges[direction][node_id]
             for edge_idx_to_remove in edges_out_to_remove:
+                #print(f'EDGE REMOVED: {self.edges[edge_idx_to_remove]}')
                 self.edges[edge_idx_to_remove] = None
                 del self.id_edges[direction][node_id][edge_idx_to_remove]
 

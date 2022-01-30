@@ -96,18 +96,16 @@ def events(cid):
         return "Failed"
 
 
-
 def functions(cid):
     if conn is None:
         init_database()
 
     cur = conn.cursor()
-    cur.execute("SELECT TCODE AS concept_name, 'complete' AS lifecycle_transition, USNAM AS org_resource, CONCAT(CPUDT, ' ', CPUTM) AS time_timestamp FROM SEQUENCE WHERE SEQUENCEID = {cid} ORDER BY POS")
-    res = set()
+    cur.execute(
+        f"SELECT TCODE AS concept_name, 'complete' AS lifecycle_transition, USNAM AS org_resource, CONCAT(CPUDT, ' ', CPUTM) AS time_timestamp FROM SEQUENCE WHERE SEQUENCEID = '{cid}' ORDER BY POS")
     try:
-        for sid in cur:
-            res.add(sid[0])
-        return res
+        tcode = next(cur)[0]
+        return tcode
     except StopIteration:
         return "Failed"
 

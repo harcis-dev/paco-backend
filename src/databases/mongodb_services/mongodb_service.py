@@ -27,7 +27,7 @@ def init_database():
 
 
 def upsert(id, graph_dictionary):
-    graph_database = conn["graph"]
-    mongo_collection = graph_database["graph"]
+    graph_database = conn["graph-database"]
+    mongo_collection = graph_database["graph-collection"]
     mongo_collection.replace_one({"_id": id}, graph_dictionary, upsert=True)
     print(f"Upsert {id} to Database")

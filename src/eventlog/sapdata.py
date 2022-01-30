@@ -2,6 +2,8 @@ from src.databases.mariadb_services import mariadb_service
 from src.model.case import Case
 from src.model.variant import Variant
 
+# FIXME DEBUG
+size = 2000
 
 class Filter:
     DEBITORS = "KUNNR"
@@ -49,9 +51,11 @@ def read_sap_data(filters):
         variants_by_footprint.setdefault(footprint, Variant(c)).cases.append(c)
 
         # FIXME DEBUG
-        if idx == 1900:
+        if idx == size:
             break
 
     print("Cases and variants are read out from database")
+
+    print(variants_by_footprint.values())
 
     return cases, variants_by_footprint.values()

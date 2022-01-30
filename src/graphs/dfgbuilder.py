@@ -46,14 +46,9 @@ def create_dfg(variants):
                 # the current event's index in the variant's list of events
                 # corresponds to the current event's index in the case's list of events
                 event_ids[case.id] = case.events[event_idx].id  # "case_0" : "event_id_0"
-                if event.id.split("_")[0] != case.events[event_idx].id.split("_")[0]:
-                    print(f"{event.id.split('_')[0]} vs {case.events[event_idx].id.split('_')[0]}")
-                    print(f"variant events: {variant.events}")
-                    print(f"case events: {case.events}")
-                    raise
 
             for node in pm["graph"]:
-                if node["data"]["id"] == event.id:
+                if node["data"]["label"] == event.name:
                     # add the current variant to the set of variants, in which the current element occurs
                     node["data"]["variants"][variant.id] = event_ids
                     found_node = True
@@ -61,22 +56,22 @@ def create_dfg(variants):
 
             if found_node:  # searching for an edge only if the event was found/is already in the graph
                 for edge in edges:
-                    if edge["data"]["source"] == predecessor and edge["data"]["target"] == event.id:
+                    if edge["data"]["source"] == predecessor and edge["data"]["target"] == event.name:
                         # add the current variant to the map of variants of the edge
                         edge["data"]["variants"][variant.id] = event_ids_empty
                         found_edge = True
                         break
             else:  # the current element appears for the first time
                 pm["graph"].append(
-                    {"data": {"id": event.id, "label": event.name, "type": "node",
+                    {"data": {"id": event.name, "label": event.name, "type": "node",
                               "variants": {variant.id: event_ids}}})
 
             if not found_edge:
                 edges.append(
-                    {"data": {"source": predecessor, "target": event.id, "label": "", "type": "DirectedEdge",
+                    {"data": {"source": predecessor, "target": event.name, "label": "", "type": "DirectedEdge",
                               "variants": {variant.id: event_ids_empty}}})
 
-            predecessor = event.id  # the current element (node) is the predecessor for the next one
+            predecessor = event.name  # the current element (node) is the predecessor for the next one
 
         # adding an edge from the last event (node) of the variant to the end node
         found_edge = False
