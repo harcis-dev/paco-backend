@@ -35,7 +35,7 @@ class ParallelActivity:
 
     def __eq__(self, other):
         if isinstance(other, ParallelActivity):
-            return (self.id_path == other.id_path) and (self.end_gateway_idx == other.end_gateway_idx)
+            return self.id_path == other.id_path and self.end_gateway_idx == other.end_gateway_idx
         else:
             return False
 

@@ -62,7 +62,7 @@ def all_cases():
             res.add(sid[0])
         return res
     except StopIteration:
-        return "Failed"
+        return "Empty"
 
 
 '''
@@ -93,7 +93,7 @@ def events(cid):
 
         return events
     except StopIteration:
-        return "Failed"
+        return "Not Found"
 
 
 def functions(cid):
@@ -107,7 +107,7 @@ def functions(cid):
         tcode = next(cur)[0]
         return tcode
     except StopIteration:
-        return "Failed"
+        return "Not Found"
 
 '''
     Returns cases ids for the given filter and its values (e.g. creditor and creditor id-numbers)
@@ -133,4 +133,4 @@ def filter_cases(filter, values):
             res.add(sid[0])
         return res
     except StopIteration:
-        return "Failed"
+        return "Not Found"

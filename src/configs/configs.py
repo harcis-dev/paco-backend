@@ -9,6 +9,9 @@ class Configs:
     """
     LANGUAGE = 'E'
 
+    DEBUG = False
+    SIZE = 1000
+
 
 class Attributes:
     """
@@ -54,11 +57,15 @@ class EpcLabels:
         A constant that represents the event node label addition.
     FUNCTION : str
         A constant that represents the function node type.
+    FUNCTION : str
+        A constant that represents the function preceding a split XOR operator.
     """
     START = ''
     EVENT = 'Event'
+    START_LABEL = ''
     EVENT_LABEL = ''
     FUNCTION = 'Function'
+    SPLIT_FUNCTION = ''
 
 
 def set_language(lang_str):
@@ -98,10 +105,14 @@ def set_labels_language():
         DfgLabels.END = 'End'
 
         EpcLabels.START = 'Start'
+        EpcLabels.START_LABEL = 'Process started'
         EpcLabels.EVENT_LABEL = 'created'
+        EpcLabels.SPLIT_FUNCTION = 'function'
     elif Configs.LANGUAGE == 'D':
         DfgLabels.START = 'Start'
         DfgLabels.END = 'Ende'
 
         EpcLabels.START = 'Start'
+        EpcLabels.START_LABEL = 'Prozess gestartet'
         EpcLabels.EVENT_LABEL = 'erstellt'
+        EpcLabels.SPLIT_FUNCTION = 'Funktion'

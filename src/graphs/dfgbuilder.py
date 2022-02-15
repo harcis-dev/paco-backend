@@ -54,11 +54,11 @@ def create_dfg(variants):
                     found_node = True
                     break
 
-            if found_node:  # searching for an edge only if the event was found/is already in the graph
+            if found_node:  # searching for an edge only if the event was found / is already in the graph
                 for edge in edges:
                     if edge["data"]["source"] == predecessor and edge["data"]["target"] == event.name:
                         # add the current variant to the map of variants of the edge
-                        edge["data"]["variants"][variant.id] = event_ids_empty
+                        edge["data"]["variants"][variant.id] = event_ids_empty  # in all the cases of this variant
                         found_edge = True
                         break
             else:  # the current element appears for the first time

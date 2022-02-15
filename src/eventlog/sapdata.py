@@ -3,7 +3,7 @@ from src.model.case import Case
 from src.model.variant import Variant
 
 # FIXME DEBUG
-size = 2000
+from src.configs import configs as ct
 
 class Filter:
     DEBITORS = "KUNNR"
@@ -37,7 +37,12 @@ def read_sap_data(filters):
                 break  # and further iterations unnecessary
     print("Filters applied")
 
-    variants_by_footprint = {}
+    # all variants (aggregated cases)
+    variants = []
+    # to each variant go identical cases,
+    # so every variant is represented by one
+    # case (its footprint)
+    variants_footprints = []
 
     print("Start reading events...")
     cases = []
@@ -46,16 +51,27 @@ def read_sap_data(filters):
         c = Case(cid)
         c.events = mariadb_service.events(cid)
         cases.append(cid)
-        footprint = c.footprint()
 
-        variants_by_footprint.setdefault(footprint, Variant(c)).cases.append(c)
+        found_idx = -1
+        for var_idx, var_footprint in enumerate(variants_footprints):
+            if c == var_footprint:
+                found_idx = var_idx
+
+        if found_idx != -1:
+            # check if the same case is already in variants
+            for var_cid in variants[found_idx].cases:
+                if cid == var_cid:
+                    found_idx = -1
+                if found_idx != -1:
+                    variants[found_idx].cases.append(c)
+        else:
+            variants_footprints.append(c)
+            variants.append(Variant(c))
 
         # FIXME DEBUG
-        if idx == size:
+        if idx == ct.Configs.SIZE:
             break
 
     print("Cases and variants are read out from database")
 
-    print(variants_by_footprint.values())
-
-    return cases, variants_by_footprint.values()
+    return cases, variants

@@ -8,7 +8,6 @@ from databases.mongodb_services import mongodb_service as mongodb
 from src.eventlog.sapdata import read_sap_data
 
 # FIXME DEBUG
-from src.eventlog.sapdata import size
 from src.graphs.epcbuilder import create_epc
 from src.model.event import Event
 from src.model.case import Case
@@ -18,6 +17,8 @@ from src.model.variant import Variant
 from src.configs import configs as ct
 from src.graphs.dfgbuilder import create_dfg
 from src.model.basis_graph import BasisGraph
+
+import copy
 
 app = Flask(__name__)
 
@@ -37,8 +38,11 @@ def calculate_new_graph():  # put application's code here
 def init():
     ct.set_language('E')
     filters = request.args.getlist('filters')
-    cases, variants = read_sap_data(filters)
-    #variants = gen_test_variants() # FIXME DEBUG
+
+    if ct.Configs.DEBUG:
+        variants = gen_test_variants() # FIXME DEBUG
+    else:
+        cases, variants = read_sap_data(filters)
 
     ''' DEBUG '''
     #print(sd.cases)
@@ -50,6 +54,7 @@ def init():
     basis_graph.create_basis_graph(variants)
     print(f"\nBasis graph created")
 
+    copy_basis_graph = copy.deepcopy(basis_graph)
     epc = create_epc(basis_graph)
     print(f"\nEpc created")
 
@@ -57,10 +62,10 @@ def init():
     #    json.dump(basis_graph.graph, f)
 
     #graph_dictionary = {"dfg": dfg}
-    graph_dictionary = {"dfg": basis_graph.graph, "epc": epc}
+    graph_dictionary = {"dfg": copy_basis_graph.graph, "epc": epc}
 
     #mongodb.upsert(str(size)+"_basis", graph_dictionary)
-    mongodb.upsert("2000_basis_epc", graph_dictionary)
+    mongodb.upsert("test5", graph_dictionary)
 
     print("Graphes stored")
 
@@ -103,14 +108,11 @@ def gen_test_variants():
     case_AE.events.append(event_E1)
 
     variant_ABCD = Variant(case_ABCD)
-    variant_ABCD.cases.append(case_ABCD)
 
     variant_ABC = Variant(case_ABC1)
-    variant_ABC.cases.append(case_ABC1)
     variant_ABC.cases.append(case_ABC2)
 
     variant_AE = Variant(case_AE)
-    variant_AE.cases.append(case_AE)
 
     return [variant_ABCD, variant_ABC, variant_AE]
 
