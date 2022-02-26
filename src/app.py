@@ -5,7 +5,7 @@ import time
 
 from databases.mariadb_services import mariadb_service as mariadb
 from databases.mongodb_services import mongodb_service as mongodb
-from src.eventlog.sapdata import read_sap_data
+import src.eventlog.sapdata as sap
 
 # FIXME DEBUG
 from src.graphs.epcbuilder import create_epc
@@ -21,6 +21,7 @@ from src.model.basis_graph import BasisGraph
 import copy
 
 app = Flask(__name__)
+
 
 @app.route('/graphs')
 def calculate_new_graph():  # put application's code here
@@ -39,16 +40,19 @@ def init():
     ct.set_language('E')
     filters = request.args.getlist('filters')
 
+    '''
     if ct.Configs.DEBUG:
-        variants = gen_test_variants() # FIXME DEBUG
+        variants = gen_test_variants()  # FIXME DEBUG
     else:
         cases, variants = read_sap_data(filters)
+    '''
+    cases, variants = sap.read_sap_data(filters)
 
     ''' DEBUG '''
-    #print(sd.cases)
-    #dfg = create_dfg(variants)
-    #print("Dfg initiated, start creating the graph...")
-    #print(f"Dfg created:\n{dfg.dfg_dict}")
+    # print(sd.cases)
+    # dfg = create_dfg(variants)
+    # print("Dfg initiated, start creating the graph...")
+    # print(f"Dfg created:\n{dfg.dfg_dict}")
 
     basis_graph = BasisGraph()
     basis_graph.create_basis_graph(variants)
@@ -58,16 +62,17 @@ def init():
     epc = create_epc(basis_graph)
     print(f"\nEpc created")
 
-    #with open('data5000basis.json', 'w') as f:
+    # with open('data5000basis.json', 'w') as f:
     #    json.dump(basis_graph.graph, f)
 
-    #graph_dictionary = {"dfg": dfg}
+    # graph_dictionary = {"dfg": dfg}
     graph_dictionary = {"dfg": copy_basis_graph.graph, "epc": epc}
 
-    #mongodb.upsert(str(size)+"_basis", graph_dictionary)
-    mongodb.upsert("test5", graph_dictionary)
+    # mongodb.upsert(str(size)+"_basis", graph_dictionary)
+    mongodb.upsert("test10", graph_dictionary)
 
     print("Graphes stored")
+
 
 # FIXME DEBUG
 def gen_test_variants():
@@ -116,10 +121,42 @@ def gen_test_variants():
 
     return [variant_ABCD, variant_ABC, variant_AE]
 
+
+def gen_test_cases():
+    event_A1 = Event("A_1", "A")
+    event_B1 = Event("B_1", "B")
+    event_A2 = Event("A_2", "A")
+    event_A3 = Event("A_3", "A")
+    event_A4 = Event("A_4", "A")
+    event_A1_A1 = Event("A_5", "A")
+    event_A2_C1 = Event("C_1", "C")
+    event_A3_C2 = Event("C_2", "C")
+
+    case_AA = Case("Case_AA")
+    case_AA.events.append(event_A1)
+    case_AA.events.append(event_A1_A1)
+
+    case_B = Case("Case_B")
+    case_B.events.append(event_B1)
+
+    case_AC1 = Case("Case_AC1")
+    case_AC1.events.append(event_A2)
+    case_AC1.events.append(event_A2_C1)
+
+    case_AC2 = Case("Case_AC2")
+    case_AC2.events.append(event_A3)
+    case_AC2.events.append(event_A3_C2)
+
+    case_A4 = Case("Case_A4")
+    case_A4.events.append(event_A4)
+
+    return [case_B, case_AC1, case_AC2, case_AA, case_A4]
+
+
 if __name__ == '__main__':
     mariadb.init_database()  # Connect to MariaDB
     mongodb.init_database()  # Connect to MongoDB
-    #sys.setrecursionlimit(2000)
+    # sys.setrecursionlimit(2000)
     app.run()
     '''
     # example insert

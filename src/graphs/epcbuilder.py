@@ -165,14 +165,14 @@ def create_epc(basis_graph):
     changed = True
     while changed:
         changed = False
-        for node in epc["graph"]:
-            if node is None:
+        for node_idx in range(len(epc["graph"])):
+            if epc["graph"][node_idx] is None:
                 continue  # one of deleted xor successors
 
-            node_id = node["data"]["id"]
-            node_type = node["data"]["type"]
+            node_id = epc["graph"][node_idx]["data"]["id"]
+            node_type = epc["graph"][node_idx]["data"]["type"]
             if "_XOR_SPLIT" in node_id and node_type == "XOR":
-                # successor label -> [successor index, successor xor index, succ->xor edge index]
+                # successor label -> [original successor index, new xor index, original succ -> new xor edge index]
                 unique_events = {}
                 # check all the xor successors
                 for edges_idx_succ, edge_succ in id_edges["out"][node_id].copy().items():
@@ -181,13 +181,14 @@ def create_epc(basis_graph):
                     succ_label = epc["graph"][succ_idx]["data"]["label"]
 
                     if succ_label not in unique_events:
-                        unique_events[succ_label] = [succ_idx, None, None]
+                        unique_events[succ_label] = [succ_idx, None, None]  # original xor successor
                     else:
+                        changed = True  # the graph will be changed here
                         # add successor xor node
-                        if succ_id in id_edges["out"]:  # if the current successor has successors
-                            changed = True
-                            if unique_events[succ_label][1] is None:  # if no xor added
-                                # adding xor
+                        # if a xor successor, that is identical to the original xor successor, has its own successors
+                        if succ_id in id_edges["out"]:
+                            if unique_events[succ_label][1] is None:  # if no xor added yet
+                                # adding the new xor node
                                 xor_node_id = f'{epc["graph"][unique_events[succ_label][0]]["data"]["label"]}_XOR_SPLIT'
                                 epc["graph"].append(
                                     {"data": {"id": xor_node_id, "label": "X", "type": "XOR",
@@ -195,50 +196,52 @@ def create_epc(basis_graph):
                                 unique_events[succ_label][1] = len(epc["graph"]) - 1
                                 basis_graph.events_by_index[xor_node_id] = unique_events[succ_label][1]
 
-                                cur_node_id = epc["graph"][unique_events[succ_label][0]]["data"]["id"]
+                                # original xor successor
+                                orig_node_id = epc["graph"][unique_events[succ_label][0]]["data"]["id"]
 
-                                # add an edge between the xor node and successors of the current node
-                                for edges_idx_succ, edge_succ in id_edges["out"][cur_node_id].items():
-                                    succ_node = edge_succ["data"]["target"]
-                                    new_edge_xor_curnodesucc = {
-                                        "data": {"id": f"{xor_node_id}_{succ_node}", "source": xor_node_id,
-                                                 "target": succ_node, "label": "",
-                                                 "type": "DirectedEdge", "variants": edge_succ["data"]["variants"]}}
-                                    edges.append(new_edge_xor_curnodesucc)
+                                # if the original xor successor has successors
+                                if orig_node_id in id_edges["out"]:
+                                    # add an edge between the new xor node and the successor of the original xor successor
+                                    for edges_idx_succ, edge_succ in id_edges["out"][orig_node_id].items():
+                                        succ_node = edge_succ["data"]["target"]  # successor of the original xor successor
+                                        new_edge_xor_origsuccnode = {
+                                            "data": {"id": f"{xor_node_id}_{succ_node}", "source": xor_node_id,
+                                                     "target": succ_node, "label": "",
+                                                     "type": "DirectedEdge", "variants": edge_succ["data"]["variants"]}}
+                                        edges.append(new_edge_xor_origsuccnode)
 
-                                    # remember an index of the inserted (current node pred -> function node)-edge in edges
-                                    edges_idx_xor_curnodesucc = len(edges) - 1
+                                        # remember an index of the inserted (new xor -> succ of the original xor succ)-edge in edges
+                                        edges_idx_xor_curnodesucc = len(edges) - 1
 
-                                    id_edges["in"][succ_node][edges_idx_xor_curnodesucc] = new_edge_xor_curnodesucc
-                                    id_edges["out"][xor_node_id] = {}
-                                    id_edges["out"][xor_node_id][edges_idx_xor_curnodesucc] = new_edge_xor_curnodesucc
+                                        id_edges["in"][succ_node] = {}  # as only one in-edge possible
+                                        id_edges["in"][succ_node][edges_idx_xor_curnodesucc] = new_edge_xor_origsuccnode
+                                        id_edges["out"][xor_node_id] = {}
+                                        id_edges["out"][xor_node_id][edges_idx_xor_curnodesucc] = new_edge_xor_origsuccnode
 
-                                    # remove the old edge from the graph;
-                                    # the old ones will be replaced with None so as not to disrupt indexing
-                                    edges[edges_idx_succ] = None
+                                        # remove the old edge from the graph;
+                                        # the old ones will be replaced with None so as not to disrupt indexing
+                                        edges[edges_idx_succ] = None
 
-                                    # remove the old in-edge of the succesor of the current node
-                                    del id_edges["in"][succ_node][edges_idx_succ]
-                                    # the old out-edge of the current node was already removed
-
-                                # add an edge between the current node and the xor node
+                                # add an edge between the original xor successor and the new xor node
                                 new_edge_cur_xor = {
-                                    "data": {"id": f"{cur_node_id}_{xor_node_id}", "source": cur_node_id,
+                                    "data": {"id": f"{orig_node_id}_{xor_node_id}", "source": orig_node_id,
                                              "target": xor_node_id, "label": "",
                                              "type": "DirectedEdge", "variants": None}}  # variants will be added later
                                 edges.append(new_edge_cur_xor)
 
-                                # remember an index of the inserted (current node -> xor)-edge in edges
+                                # remember an index of the inserted (original xor succ -> new xor)-edge in edges
                                 edge_idx_cur_xor = len(edges) - 1
+                                # assign the new xor node to the original xor successor
                                 unique_events[succ_label][2] = edge_idx_cur_xor
 
-                                # add the edge to the in and out edges of the nodes
-                                id_edges["out"][unique_events[succ_label][0]] = {}
-                                id_edges["out"][unique_events[succ_label][0]][edge_idx_cur_xor] = new_edge_cur_xor
+                                # remove the out-edge of the original xor successor
+                                id_edges["out"][orig_node_id] = {}
+                                # add the edge to the new xor node
+                                id_edges["out"][orig_node_id][edge_idx_cur_xor] = new_edge_cur_xor
                                 id_edges["in"][xor_node_id] = {}
                                 id_edges["in"][xor_node_id][edge_idx_cur_xor] = new_edge_cur_xor
 
-                            # add an edge between the xor node and the successor of the identical node
+                            # add an edge between the new xor and the successor of the identical xor successor
                             for edge_idx_idec, edge_idec in id_edges["out"][succ_id].items():
                                 succ_idec = edge_idec["data"]["target"]
                                 xor_node_id = epc["graph"][unique_events[succ_label][1]]["data"]["id"]
@@ -248,36 +251,50 @@ def create_epc(basis_graph):
                                              "variants": edge_idec["data"]["variants"]}}
                                 edges.append(new_edge_xor_succidec)
 
-                                # remember an index of the inserted (xor -> successor of the identical node)-edge in edges
+                                # remember an index of the inserted (new xor -> succ of the identical xor succ)-edge in edges
                                 edge_idx_xor_succidec = len(edges) - 1
 
+                                if xor_node_id not in id_edges["out"]:  # if the original node has no successors
+                                    id_edges["out"][xor_node_id] = {}
                                 id_edges["out"][xor_node_id][edge_idx_xor_succidec] = new_edge_xor_succidec
+                                # edge from succ_idec to its predecessor will be removed later in remove_node()
                                 id_edges["in"][succ_idec][edge_idx_xor_succidec] = new_edge_xor_succidec
 
-                            # add all variants to one of identical xor successors
-                            epc["graph"][unique_events[succ_label][0]]["data"]["variants"] = deep_merge_two_dicts(
-                                epc["graph"][unique_events[succ_label][0]]["data"]["variants"],
-                                epc["graph"][succ_idx]["data"]["variants"])
+                        # add all variants of the identical xor successor to the original xor successor
+                        epc["graph"][unique_events[succ_label][0]]["data"]["variants"] = deep_merge_two_dicts(
+                            epc["graph"][unique_events[succ_label][0]]["data"]["variants"],
+                            epc["graph"][succ_idx]["data"]["variants"])
 
-                            # remove the identical xor successor (current node)
-                            remove_node(epc, succ_idx, basis_graph.events_by_index, edges, id_edges)
+                        # remove the identical xor successor
+                        remove_node(epc, succ_idx, basis_graph.events_by_index, edges, id_edges)
 
-                # set variants of the added xors and edges between xors and unique nodes
+                # set variants of the new xors and edges between the original xor successors and the new xors
                 for succ_xor in unique_events.values():
+                    # if a new xor was added
                     if succ_xor[1] is not None:
+                        # variants of the current original xor successor
                         succ_variants = epc["graph"][succ_xor[0]]["data"]["variants"]
+                        # in-edge of the original xor successor
                         in_edge = list(id_edges["in"][epc["graph"][succ_xor[0]]["data"]["id"]].values())[0]
+                        # set variants of the original xor successor to its in-edge
                         in_edge["data"]["variants"] = succ_variants
+                        # set variants of the original xor successor to the new xor
                         epc["graph"][succ_xor[1]]["data"]["variants"] = succ_variants
+                        # set variants of the original xor successor to the edge
+                        # between the original xor successor and the new xor
                         edges[succ_xor[2]]["data"]["variants"] = succ_variants
 
                 # if all the successors of the split xor were identical,
-                # remove the xor operator
+                # remove the xor operator, as they were merged to one node
                 if len(id_edges["out"][node_id]) == 1:
                     for edge_idx_xor, edge_xor in id_edges["in"][node_id].items():
+                        # xor predecessor
                         pred_xor_id = edge_xor["data"]["source"]
-                        succ_xor_idx = list(unique_events.values())[0][0]  # only one unique event
+                        # xor successor
+                        succ_xor_idx = list(unique_events.values())[0][0]  # only one original xor successor
                         succ_xor_id = epc["graph"][succ_xor_idx]["data"]["id"]
+
+                        # add an edge between the xor predecessor and the xor successor
                         new_edge_predxor_succxor = {
                             "data": {"id": f"{pred_xor_id}_{succ_xor_id}", "source": pred_xor_id,
                                      "target": succ_xor_id,
@@ -286,7 +303,7 @@ def create_epc(basis_graph):
                                      "variants": epc["graph"][succ_xor_idx]["data"]["variants"]}}
                         edges.append(new_edge_predxor_succxor)
 
-                        # remember an index of the inserted (xor -> successor of the identical node)-edge in edges
+                        # remember an index of the inserted (pred -> succ)-edge in edges
                         edge_idx_predxor_succxor = len(edges) - 1
 
                         id_edges["out"][pred_xor_id][edge_idx_predxor_succxor] = new_edge_predxor_succxor
@@ -294,7 +311,7 @@ def create_epc(basis_graph):
 
                     remove_node(epc, basis_graph.events_by_index[node_id], basis_graph.events_by_index, edges, id_edges)
 
-            if changed: break
+        if changed: break
 
     print("removing None values")
     temp = []

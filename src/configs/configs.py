@@ -9,7 +9,7 @@ class Configs:
     """
     LANGUAGE = 'E'
 
-    DEBUG = False
+    DEBUG = True
     SIZE = 1000
 
 

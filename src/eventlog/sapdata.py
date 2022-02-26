@@ -1,3 +1,6 @@
+from itertools import islice
+
+import src.app
 from src.databases.mariadb_services import mariadb_service
 from src.model.case import Case
 from src.model.variant import Variant
@@ -46,31 +49,53 @@ def read_sap_data(filters):
 
     print("Start reading events...")
     cases = []
-    for idx, cid in enumerate(case_ids):  # FIXME DEBUG REMOVE IDX
-        print(f"-- case {cid}\t nr. {idx + 1}\t out of {len(case_ids)}")
-        c = Case(cid)
-        c.events = mariadb_service.events(cid)
-        cases.append(cid)
+    if ct.Configs.DEBUG:
+        for c in src.app.gen_test_cases():
+            cases.append(c.id)
+            found_idx = -1
+            for var_idx, var_footprint in enumerate(variants_footprints):
+                if c == var_footprint:
+                    found_idx = var_idx
 
-        found_idx = -1
-        for var_idx, var_footprint in enumerate(variants_footprints):
-            if c == var_footprint:
-                found_idx = var_idx
+            if found_idx != -1:
+                # check if the same case is already in variants
+                for var_cid in variants[found_idx].cases:
+                    if c.id == var_cid:
+                        found_idx = -1
+                    if found_idx != -1:
+                        variants[found_idx].cases.append(c)
+                        break
+            else:
+                variants_footprints.append(c)
+                variants.append(Variant(c))
+    else:
+        cases = []
+        for idx, cid in enumerate(case_ids):  # FIXME DEBUG REMOVE IDX
+            print(f"-- case {cid}\t nr. {idx + 1}\t out of {len(case_ids)}")
+            c = Case(cid)
+            c.events = mariadb_service.events(cid)
+            cases.append(cid)
 
-        if found_idx != -1:
-            # check if the same case is already in variants
-            for var_cid in variants[found_idx].cases:
-                if cid == var_cid:
-                    found_idx = -1
-                if found_idx != -1:
-                    variants[found_idx].cases.append(c)
-        else:
-            variants_footprints.append(c)
-            variants.append(Variant(c))
+            found_idx = -1
+            for var_idx, var_footprint in enumerate(variants_footprints):
+                if c == var_footprint:
+                    found_idx = var_idx
 
-        # FIXME DEBUG
-        if idx == ct.Configs.SIZE:
-            break
+            if found_idx != -1:
+                # check if the same case is already in variants
+                for var_cid in variants[found_idx].cases:
+                    if cid == var_cid:
+                        found_idx = -1
+                    if found_idx != -1:
+                        variants[found_idx].cases.append(c)
+                        break
+            else:
+                variants_footprints.append(c)
+                variants.append(Variant(c))
+
+            # FIXME DEBUG
+            if idx == ct.Configs.SIZE:
+                break
 
     print("Cases and variants are read out from database")
 
