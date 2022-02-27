@@ -1,10 +1,6 @@
-from itertools import islice
-
 from src.configs.configs import EpcLabels
 from src.databases.mariadb_services.mariadb_service import functions
 from src.model.basis_graph import deep_merge_two_dicts
-from src.model.event import Event
-from src.model.eventnode import EventNode
 
 # FIXME DEBUG
 from src.configs import configs as ct
@@ -27,11 +23,12 @@ def create_epc(basis_graph):
 
     # renaming the start node
     print("Renaming the start node")
-    epc["graph"][0]["data"]["label"] = EpcLabels.START
+    epc["graph"][0]["data"]["label"] = EpcLabels.START_LABEL
 
     print("\nAdding functions")
     id_iter = 0
 
+    # add a function before each event
     for node_idx in range(len(epc["graph"])):
         node = epc["graph"][node_idx]
         node_id = node["data"]["id"]
@@ -249,6 +246,8 @@ def create_epc(basis_graph):
 
         if not changed: break
 
+    # TODO: OPTIMIZE?
+    # add a function before all split xor nodes, if necessary
     for node_idx in range(len(epc["graph"])):
         node = epc["graph"][node_idx]  # XOR
         if node is None:

@@ -1,6 +1,7 @@
 import json
 import os
 import jsonpickle
+import requests as requests
 
 from flask import Flask, request
 import time
@@ -10,6 +11,7 @@ from databases.mongodb_services import mongodb_service as mongodb
 import src.eventlog.sapdata as sap
 
 # FIXME DEBUG
+from src.graphs.bpmnbuilder import create_bpmn
 from src.graphs.epcbuilder import create_epc
 from src.model.event import Event
 from src.model.case import Case
@@ -37,20 +39,18 @@ def calculate_new_graph():  # put application's code here
     # response.headers.add("Access-Control-Allow-Origin", "*")
     return 'Der Graph ist fertig!', 204
 
+def get_cases():
+    string = requests.get('http://localhost:8080/api/event-log').content  # TODO
+    return string
+
 
 def init():
     ct.set_language('E')
     filters = request.args.getlist('filters')
 
-    '''
     if ct.Configs.DEBUG:
-        variants = gen_test_variants()  # FIXME DEBUG
-    else:
-        cases, variants = read_sap_data(filters)
-    '''
-    if not ct.Configs.REPRODUCIBLE:
-        cases, variants = sap.read_sap_data(filters)
-    else:
+        variants = gen_test_variants()
+    elif ct.Configs.REPRODUCIBLE:
         if not os.path.exists(f"casesvariants.json"):
             cases, variants = sap.read_sap_data(filters)
             with open('casesvariants.json', 'w') as f:
@@ -60,29 +60,32 @@ def init():
             with open('casesvariants.json', 'r') as f:
                 variants_json = json.load(f)
                 variants = jsonpickle.decode(variants_json)
+    else:
+        cases, variants = sap.read_sap_data(filters)
 
-    ''' DEBUG '''
-    # print(sd.cases)
-    # dfg = create_dfg(variants)
-    # print("Dfg initiated, start creating the graph...")
-    # print(f"Dfg created:\n{dfg.dfg_dict}")
+    dfg = create_dfg(variants)
+    print("\nDfg created")
 
     basis_graph = BasisGraph()
     basis_graph.create_basis_graph(variants)
-    print(f"\nBasis graph created")
+    print("\nBasis graph created")
 
-    copy_basis_graph = copy.deepcopy(basis_graph)
-    epc = create_epc(basis_graph)
-    print(f"\nEpc created")
+    copy_basis_graph_epc = copy.deepcopy(basis_graph)
+    copy_basis_graph_bpmn = copy.deepcopy(basis_graph)
+
+    epc = create_epc(copy_basis_graph_epc)
+    print("\nEpc created")
+
+    bpmn = create_bpmn(copy_basis_graph_bpmn)
+    print("\nBpmn created")
 
     # with open('data5000basis.json', 'w') as f:
     #    json.dump(basis_graph.graph, f)
 
-    # graph_dictionary = {"dfg": dfg}
-    graph_dictionary = {"dfg": copy_basis_graph.graph, "epc": epc}
+    graph_dictionary = {"dfg": dfg, "epc": epc, "bpmn": bpmn}
 
     # mongodb.upsert(str(size)+"_basis", graph_dictionary)
-    mongodb.upsert("test1", graph_dictionary)
+    mongodb.upsert("all_test1_big", graph_dictionary)
 
     print("Graphes stored")
 

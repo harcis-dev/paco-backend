@@ -10,7 +10,8 @@ class Configs:
     LANGUAGE = 'E'
 
     DEBUG = False
-    REPRODUCIBLE = False
+    REPRODUCIBLE = True
+    JXES = False
     SIZE = 2000
 
 
@@ -50,7 +51,7 @@ class EpcLabels:
 
     Attributes
     __________
-    START : str
+    START_LABEL : str
         A constant that represents the start node label.
     EVENT : str
         A constant that represents the event node type.
@@ -61,12 +62,41 @@ class EpcLabels:
     FUNCTION : str
         A constant that represents the function preceding a split XOR operator.
     """
-    START = ''
-    EVENT = 'Event'
     START_LABEL = ''
+    EVENT = 'Event'
     EVENT_LABEL = ''
     FUNCTION = 'Function'
     SPLIT_FUNCTION = ''
+
+class BpmnLabels:
+    """A class with constants that represent common bpmn labels.
+
+    The constants will be defined via `src.configs.configs.set_labels_language` in `src.configs.configs.set_language`.
+
+    Attributes
+    __________
+    PROCESS : str
+        A constant that represents the process pool id.
+    START : str
+        A constant that represents the start event type.
+    END : str
+        A constant that represents the end event type.
+    XOR : str
+        A constant that represents the xor operator type.
+    EDGE : str
+        A constant that represents the edge type.
+    ACTIVITY : str
+        A constant that represents the activity node type.
+    ACTIVITY_LABEL : str
+        A constant that represents the activity node label addition.
+    """
+    PROCESS = 'Process'
+    START = 'Intermediate'
+    END = 'End'
+    XOR = 'Exclusive'
+    EDGE = 'StandardEdge'
+    ACTIVITY = 'GenericTask'
+    ACTIVITY_LABEL = ''
 
 
 def set_language(lang_str):
@@ -105,15 +135,18 @@ def set_labels_language():
         DfgLabels.START = 'Start'
         DfgLabels.END = 'End'
 
-        EpcLabels.START = 'Start'
         EpcLabels.START_LABEL = 'Process started'
         EpcLabels.EVENT_LABEL = 'created'
         EpcLabels.SPLIT_FUNCTION = 'function'
+
+        BpmnLabels.ACTIVITY_LABEL = 'create'
+
     elif Configs.LANGUAGE == 'D':
         DfgLabels.START = 'Start'
         DfgLabels.END = 'Ende'
 
-        EpcLabels.START = 'Start'
         EpcLabels.START_LABEL = 'Prozess gestartet'
         EpcLabels.EVENT_LABEL = 'erstellt'
         EpcLabels.SPLIT_FUNCTION = 'Funktion'
+
+        BpmnLabels.ACTIVITY_LABEL = 'erstellen'
