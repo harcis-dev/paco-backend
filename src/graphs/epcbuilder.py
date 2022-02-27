@@ -32,7 +32,8 @@ def create_epc(basis_graph):
     print("\nAdding functions")
     id_iter = 0
 
-    for node in islice(epc["graph"], 0, len(epc["graph"])):
+    for node_idx in range(len(epc["graph"])):
+        node = epc["graph"][node_idx]
         node_id = node["data"]["id"]
         if node["data"]["type"] != "XOR":
             node["data"]["type"] = EpcLabels.EVENT
@@ -43,7 +44,7 @@ def create_epc(basis_graph):
 
                 function_id = f"{node_id}_{id_iter}_{node_label}_function"
                 function_label = functions(list(node_variants)[0]) if not ct.Configs.DEBUG else node_label
-                function_node = {"data": {"id": function_id, "label": f"{function_label}", "type": EpcLabels.FUNCTION,
+                function_node = {"data": {"id": function_id, "label": function_label, "type": EpcLabels.FUNCTION,
                                           "variants": node_variants}}
 
                 # add the function node to the graph
@@ -94,71 +95,6 @@ def create_epc(basis_graph):
                 id_iter += 1
             else:
                 node["data"]["label"] = EpcLabels.START_LABEL
-        else:  # XOR
-            # only a function can precede a split XOR operator,
-            # so insert if necessary
-            if "_XOR_SPLIT" in node_id:  # if the node is a split xor operator
-                node_variants = node["data"]["variants"]
-                for edges_idx, edge in id_edges["in"][node_id].items():
-                    # if a predecessor of the xor node is not already a function
-                    # (it is impossible for the current state of the program,
-                    #  but anyway it is worth checking)
-                    pred_id = edge["data"]["source"]
-                    pred_graph_idx = basis_graph.events_by_index[pred_id]
-                    if epc["graph"][pred_graph_idx]["data"]["type"] != EpcLabels.FUNCTION:
-                        function_id = f"{node_id}_{id_iter}_X_function"
-                        function_label = f"{functions(list(node_variants)[0])} {EpcLabels.SPLIT_FUNCTION}" if not ct.Configs.DEBUG else f"SPLIT XOR {EpcLabels.SPLIT_FUNCTION}"
-                        function_node = {
-                            "data": {"id": function_id, "label": f"{function_label}", "type": EpcLabels.FUNCTION,
-                                     "variants": node_variants}}
-
-                        # add the function node to the graph
-                        epc["graph"].append(function_node)
-                        basis_graph.events_by_index[function_id] = len(epc["graph"]) - 1
-                        print(f"Function {function_id} added")
-
-                        # add an edge between the function node and the xor node
-                        new_edge_func_xor = {
-                            "data": {"id": f"{function_id}_{node_id}", "source": function_id, "target": node_id,
-                                     "label": "", "type": "DirectedEdge", "variants": node_variants}}
-                        edges.append(new_edge_func_xor)
-
-                        # remember an index of the inserted (function node -> xor)-edge in edges
-                        edges_idx_func_xor = len(edges) - 1
-
-                        # edges from predecessors of the current node to the function node
-                        print(f"Adding edges from {function_id} to predecessors of {node_id}")
-                        id_edges["in"][function_id] = {}
-                        for edges_idx_func, edge_func in id_edges["in"][node_id].items():
-                            source_node = edge_func["data"]["source"]
-                            new_edge_xorpred_func = {
-                                "data": {"id": f"{source_node}_{function_id}", "source": source_node,
-                                         "target": function_id, "label": "",
-                                         "type": "DirectedEdge", "variants": edge_func["data"]["variants"]}}
-                            edges.append(new_edge_xorpred_func)
-
-                            # remember an index of the inserted (xor pred -> function node)-edge in edges
-                            edges_idx_xorpred_func = len(edges) - 1
-
-                            id_edges["in"][function_id][edges_idx_xorpred_func] = new_edge_xorpred_func
-                            id_edges["out"][source_node][edges_idx_xorpred_func] = new_edge_xorpred_func
-
-                            # remove the old edge from the graph;
-                            # the old ones will be replaced with None so as not to disrupt indexing
-                            edges[edges_idx_func] = None
-
-                            # remove the old out-edge from the source node
-                            del id_edges["out"][source_node][edges_idx_func]
-
-                        print("Function and predecessors are connected")
-
-                        # update in and out edge lists with the (xor -> current node)-edge
-                        id_edges["in"][node_id] = {}
-                        id_edges["in"][node_id][edges_idx_func_xor] = new_edge_func_xor
-                        id_edges["out"][function_id] = {}
-                        id_edges["out"][function_id][edges_idx_func_xor] = new_edge_func_xor
-
-                        id_iter += 1
 
     # if some successors of a split xor node are identical,
     # they will be merged
@@ -189,7 +125,7 @@ def create_epc(basis_graph):
                         if succ_id in id_edges["out"]:
                             if unique_events[succ_label][1] is None:  # if no xor added yet
                                 # adding the new xor node
-                                xor_node_id = f'{epc["graph"][unique_events[succ_label][0]]["data"]["label"]}_XOR_SPLIT'
+                                xor_node_id = f'{epc["graph"][unique_events[succ_label][0]]["data"]["id"]}_XOR_SPLIT'
                                 epc["graph"].append(
                                     {"data": {"id": xor_node_id, "label": "X", "type": "XOR",
                                               "variants": None}})  # variants will be added later
@@ -311,7 +247,77 @@ def create_epc(basis_graph):
 
                     remove_node(epc, basis_graph.events_by_index[node_id], basis_graph.events_by_index, edges, id_edges)
 
-        if changed: break
+        if not changed: break
+
+    for node_idx in range(len(epc["graph"])):
+        node = epc["graph"][node_idx]  # XOR
+        if node is None:
+            continue  # one of deleted xor successors
+        node_id = node["data"]["id"]
+        # only a function can precede a split XOR operator,
+        # so insert if necessary
+        if "_XOR_SPLIT" in node_id:  # if the node is a split xor operator
+            node_variants = node["data"]["variants"]
+            for edges_idx, edge in id_edges["in"][node_id].items():
+                # if a predecessor of the xor node is not already a function
+                # (it is impossible for the current state of the program,
+                #  but anyway it is worth checking)
+                pred_id = edge["data"]["source"]
+                pred_graph_idx = basis_graph.events_by_index[pred_id]
+                if epc["graph"][pred_graph_idx]["data"]["type"] != EpcLabels.FUNCTION:
+                    function_id = f"{node_id}_{id_iter}_X_function"
+                    function_label = f"{functions(list(node_variants)[0])} {EpcLabels.SPLIT_FUNCTION}" if not ct.Configs.DEBUG else f"SPLIT XOR {EpcLabels.SPLIT_FUNCTION}"
+                    function_node = {
+                        "data": {"id": function_id, "label": function_label, "type": EpcLabels.FUNCTION,
+                                 "variants": node_variants}}
+
+                    # add the function node to the graph
+                    epc["graph"].append(function_node)
+                    basis_graph.events_by_index[function_id] = len(epc["graph"]) - 1
+                    print(f"Function {function_id} added")
+
+                    # add an edge between the function node and the xor node
+                    new_edge_func_xor = {
+                        "data": {"id": f"{function_id}_{node_id}", "source": function_id, "target": node_id,
+                                 "label": "", "type": "DirectedEdge", "variants": node_variants}}
+                    edges.append(new_edge_func_xor)
+
+                    # remember an index of the inserted (function node -> xor)-edge in edges
+                    edges_idx_func_xor = len(edges) - 1
+
+                    # edges from predecessors of the current node to the function node
+                    print(f"Adding edges from {function_id} to predecessors of {node_id}")
+                    id_edges["in"][function_id] = {}
+                    for edges_idx_func, edge_func in id_edges["in"][node_id].items():
+                        source_node = edge_func["data"]["source"]
+                        new_edge_xorpred_func = {
+                            "data": {"id": f"{source_node}_{function_id}", "source": source_node,
+                                     "target": function_id, "label": "",
+                                     "type": "DirectedEdge", "variants": edge_func["data"]["variants"]}}
+                        edges.append(new_edge_xorpred_func)
+
+                        # remember an index of the inserted (xor pred -> function node)-edge in edges
+                        edges_idx_xorpred_func = len(edges) - 1
+
+                        id_edges["in"][function_id][edges_idx_xorpred_func] = new_edge_xorpred_func
+                        id_edges["out"][source_node][edges_idx_xorpred_func] = new_edge_xorpred_func
+
+                        # remove the old edge from the graph;
+                        # the old ones will be replaced with None so as not to disrupt indexing
+                        edges[edges_idx_func] = None
+
+                        # remove the old out-edge from the source node
+                        del id_edges["out"][source_node][edges_idx_func]
+
+                    print("Function and predecessors are connected")
+
+                    # update in and out edge lists with the (xor -> current node)-edge
+                    id_edges["in"][node_id] = {}
+                    id_edges["in"][node_id][edges_idx_func_xor] = new_edge_func_xor
+                    id_edges["out"][function_id] = {}
+                    id_edges["out"][function_id][edges_idx_func_xor] = new_edge_func_xor
+
+                    id_iter += 1
 
     print("removing None values")
     temp = []

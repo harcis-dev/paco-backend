@@ -1,4 +1,6 @@
 import json
+import os
+import jsonpickle
 
 from flask import Flask, request
 import time
@@ -46,7 +48,18 @@ def init():
     else:
         cases, variants = read_sap_data(filters)
     '''
-    cases, variants = sap.read_sap_data(filters)
+    if not ct.Configs.REPRODUCIBLE:
+        cases, variants = sap.read_sap_data(filters)
+    else:
+        if not os.path.exists(f"casesvariants.json"):
+            cases, variants = sap.read_sap_data(filters)
+            with open('casesvariants.json', 'w') as f:
+                variants_json = jsonpickle.encode(variants)
+                json.dump(variants_json, f)
+        else:
+            with open('casesvariants.json', 'r') as f:
+                variants_json = json.load(f)
+                variants = jsonpickle.decode(variants_json)
 
     ''' DEBUG '''
     # print(sd.cases)
@@ -69,7 +82,7 @@ def init():
     graph_dictionary = {"dfg": copy_basis_graph.graph, "epc": epc}
 
     # mongodb.upsert(str(size)+"_basis", graph_dictionary)
-    mongodb.upsert("test10", graph_dictionary)
+    mongodb.upsert("test1", graph_dictionary)
 
     print("Graphes stored")
 

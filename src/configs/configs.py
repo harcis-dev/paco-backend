@@ -9,8 +9,9 @@ class Configs:
     """
     LANGUAGE = 'E'
 
-    DEBUG = True
-    SIZE = 1000
+    DEBUG = False
+    REPRODUCIBLE = False
+    SIZE = 2000
 
 
 class Attributes:
