@@ -22,28 +22,6 @@ class Filter:
 '''
 
 def read_sap_data(filters):
-    case_ids = set()
-
-    '''
-    print("Reading data...")
-    # array of filters is None or empty
-    if filters is None or not filters:
-        case_ids = mariadb_service.all_cases()
-    else:
-        for filter in filters.keys():
-            filter_case_ids = mariadb_service.filter_cases(filter, filters[filter])
-            if filter_case_ids and case_ids:
-                case_ids = case_ids.intersection(filter_case_ids)  # take only common items
-            elif filter_case_ids:  # if it is the first key
-                case_ids = filter_case_ids  # (at first the set of cases is empty
-                # => empty intersection as a result)
-
-            if not case_ids:  # if the result set of case ids is empty after applying of the filter
-                case_ids = set()  # then there is no element that satisfies the given filter conditions
-                break  # and further iterations unnecessary
-    print("Filters applied")
-    '''
-
     # all variants (aggregated cases)
     variants = []
     # to each variant go identical cases,
@@ -54,7 +32,11 @@ def read_sap_data(filters):
     print("Start reading events...")
     cases = []
     if ct.Configs.DEBUG:
-        for c in src.app.gen_test_cases():
+        debug_cases = []
+        match ct.Configs.DEBUG_CASES:
+            case 'EPC': debug_cases = src.app.gen_test_cases_epc()
+            case 'AND_SMALL': debug_cases = src.app.gen_test_cases_and_small()
+        for c in debug_cases:
             cases.append(c.id)
             found_idx = -1
             for var_idx, var_footprint in enumerate(variants_footprints):
@@ -74,6 +56,27 @@ def read_sap_data(filters):
                 variants.append(Variant(c))
     else:
         if not ct.Configs.JXES:
+            case_ids = set()
+
+            print("Reading data...")
+            # array of filters is None or empty
+            if filters is None or not filters:
+                case_ids = mariadb_service.all_cases()
+            else:
+                for filter in filters.keys():
+                    filter_case_ids = mariadb_service.filter_cases(filter, filters[filter])
+                    if filter_case_ids and case_ids:
+                        case_ids = case_ids.intersection(filter_case_ids)  # take only common items
+                    elif filter_case_ids:  # if it is the first key
+                        case_ids = filter_case_ids  # (at first the set of cases is empty
+                        # => empty intersection as a result)
+
+                    if not case_ids:  # if the result set of case ids is empty after applying of the filter
+                        case_ids = set()  # then there is no element that satisfies the given filter conditions
+                        break  # and further iterations unnecessary
+
+            print("Filters applied")
+
             cases = []
             for idx, cid in enumerate(case_ids):  # FIXME DEBUG REMOVE IDX
                 print(f"-- case {cid}\t nr. {idx + 1}\t out of {len(case_ids)}")
@@ -108,9 +111,9 @@ def read_sap_data(filters):
                 cid = case_json["attrs"]["concept:name"]
                 case = Case(cid)
                 events = []
-                for event_json in case_json["events"]:
+                for idx, event_json in enumerate(case_json["events"]):
                     e_name = event_json['concept:name']
-                    event = Event(f"{e_name}_{cid}", e_name)
+                    event = Event(f"{e_name}_{cid}_{idx}", e_name)
                     event.attributes = event_json
                     events.append(event)
                 # sort events in a case

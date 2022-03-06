@@ -4,8 +4,8 @@ class ParallelActivity:
         self.incoming_edges_count = -1
         self.start_gateway_idx = -1
         self.end_gateway_idx = -1
-        self.id_path = []
-        self.nodes_path = [set()]
+        self.label_path = []
+        self.nodes_path = []
         self.block_start_end = {}
         self.unique_event_labels = []
         self.event_count = []
@@ -20,7 +20,7 @@ class ParallelActivity:
 
     def add_event(self, event_idx, event_label):
         self.nodes_path.append(event_idx)
-        self.id_path.append(event_label)
+        self.label_path.append(event_label)
         for idx, unique_event_label in enumerate(self.unique_event_labels):
             if unique_event_label == event_label:
                 # found -> increment and stop the method execution
@@ -31,11 +31,11 @@ class ParallelActivity:
         self.event_count.append(1)
 
     def __repr__(self):
-        return "ParallelActivity(%s, %s)" % (self.id_path, self.end_gateway_idx)
+        return "ParallelActivity(%s, %s)" % (self.label_path, self.end_gateway_idx)
 
     def __eq__(self, other):
         if isinstance(other, ParallelActivity):
-            return self.id_path == other.id_path and self.end_gateway_idx == other.end_gateway_idx
+            return self.label_path == other.label_path and self.end_gateway_idx == other.end_gateway_idx
         else:
             return False
 

@@ -10,7 +10,8 @@ class Configs:
     LANGUAGE = 'E'
 
     DEBUG = False
-    REPRODUCIBLE = True
+    DEBUG_CASES = "EPC"
+    REPRODUCIBLE = False
     JXES = False
     SIZE = 2000
 
@@ -59,6 +60,8 @@ class EpcLabels:
         A constant that represents the event node label addition.
     FUNCTION : str
         A constant that represents the function node type.
+    EDGE : str
+        A constant that represents the edge type.
     FUNCTION : str
         A constant that represents the function preceding a split XOR operator.
     """
@@ -66,6 +69,7 @@ class EpcLabels:
     EVENT = 'Event'
     EVENT_LABEL = ''
     FUNCTION = 'Function'
+    EDGE = 'InformationFlow'
     SPLIT_FUNCTION = ''
 
 class BpmnLabels:

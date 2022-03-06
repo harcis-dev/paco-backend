@@ -212,7 +212,8 @@ class BasisGraph:
 
         print("Split XOR")
         # split xor operator
-        for node in islice(self.graph["graph"], 0, len(self.graph["graph"])):
+        for node_idx in range(len(self.graph["graph"])):
+            node = self.graph["graph"][node_idx]
             node_type = node["data"]["type"]
             node_id = node["data"]["id"]
             node_variants = node["data"]["variants"]
@@ -263,6 +264,8 @@ class BasisGraph:
 
                 # remove the old in-edges from the target node
                 del self.id_edges["in"][target_node][edge_idx]
+                if len(self.id_edges["in"][target_node]) == 0:
+                   del self.id_edges["in"][target_node]
 
             # update in and out edge lists with the (current node -> xor)-edge
             self.id_edges["out"][node_id] = {}  # remove all the old edges
@@ -272,7 +275,8 @@ class BasisGraph:
 
         print("Join XOR")
         # join xor operator
-        for node in islice(self.graph["graph"], 0, len(self.graph["graph"])):
+        for node_idx in range(len(self.graph["graph"])):
+            node = self.graph["graph"][node_idx]
             node_id = node["data"]["id"]
             node_type = node["data"]["type"]
             node_variants = node["data"]["variants"]
@@ -323,6 +327,8 @@ class BasisGraph:
 
                 # remove the old out-edge from the source node
                 del self.id_edges["out"][source_node][edge_idx]
+                if len(self.id_edges["out"][source_node]) == 0:
+                   del self.id_edges["out"][source_node]
 
             # update in and out edge lists with the (xor -> current node)-edge
             self.id_edges["in"][node_id] = {}  # remove all the old self.edges
@@ -338,8 +344,7 @@ class BasisGraph:
                 new_end_nodes[end_node_name] = {}
             for node_id, node_idx in self.end_nodes[end_node_name].items():
                 # if end node
-                if node_id in self.id_edges["in"] and node_id in self.id_edges["out"] \
-                        and len(self.id_edges["in"][node_id]) != 0 and len(self.id_edges["out"][node_id]) == 0:
+                if node_id not in self.id_edges["out"]:
                     new_end_nodes[end_node_name][node_id] = node_idx
 
         end_nodes = new_end_nodes
@@ -446,9 +451,10 @@ class BasisGraph:
                     if xor_succ_type == "XOR":  # SPLIT or JOIN
                         continue
                     else:
+                        xor_succ_id = edge["data"]["target"]
                         pa = ParallelActivity()
                         pa.set_start_gateway(node_idx, len(self.id_edges["out"][node_id]))
-                        self.find_parallels(node_id, pa)
+                        self.find_parallels(xor_succ_id, pa)
 
                         # no join xor found
                         if pa.end_gateway_idx == -1: continue
@@ -457,9 +463,8 @@ class BasisGraph:
                         # so identical paths have the same footprint, regardless of the event order,
                         # if they flow into the same xor node.
                         # parallel activities should have the same join xor
-                        pa.id_path.add(self.graph["graph"][pa.end_gateway_idx]["data"]["id"])
 
-                        footprint = pa.id_path
+                        footprint = pa.label_path
 
                         found_idx = -1
                         for pf_idx, par_footprint in enumerate(parallels_footprints):
@@ -480,7 +485,7 @@ class BasisGraph:
         # for every footprint
         for fp_pas in parallels_pa:
             # number of events in the footprint activity
-            size = len(fp_pas[0].id_path)
+            size = len(fp_pas[0].label_path)
             # if more than one event then parallelism possible
             if size > 1:
                 '''
@@ -520,10 +525,10 @@ class BasisGraph:
                     # for every parallel activity with the same footprint
                     for pa in fp_pas:
                         # for every event of the activity
-                        for path_idx, node_id in enumerate(pa.id_path):
+                        for path_idx, node_idx in enumerate(pa.nodes_path):
                             # Same indices in nodes and labels paths reference same events
-                            node_idx = pa.nodes_path[path_idx]
-                            node_label = self.graph["graph"][node_idx]["data"]["label"]
+                            node_label = pa.label_path[path_idx]
+                            node_id = self.graph["graph"][node_idx]["data"]["id"]
                             # if the node_id contains "XOR_SPLIT", then it is a block
                             is_block = "_XOR_SPLIT" in node_label
                             # old nodes on the path from split to join xor will be removed;
@@ -547,7 +552,7 @@ class BasisGraph:
                                 # remove the old node from the graph;
                                 # the old ones will be replaced with None so as not to disrupt indexing
                                 self.graph["graph"][node_idx] = None
-                                del self.events_by_index[node_idx]
+                                del self.events_by_index[node_id]
 
                             # remove in and out edges to the old node/block
                             if is_block:
@@ -555,7 +560,7 @@ class BasisGraph:
                             else:
                                 self.remove_edges_event(node_id)
 
-                    # add the ADD split node
+                    # add the AND split node
                     xor_node_id = self.graph["graph"][fp_pas[0].start_gateway_idx]["data"]["id"]
                     and_node_id = xor_node_id.replace("XOR", "AND")
                     and_node_label = "∧"
@@ -577,7 +582,10 @@ class BasisGraph:
                                          "type": "DirectedEdge", "variants": node_variants}}
                             self.edges.append(new_edge_and_unique_event)
                             edge_idx_and_unique_event = len(self.edges) - 1
+                            self.id_edges["in"][node_id] = {}
                             self.id_edges["in"][node_id][edge_idx_and_unique_event] = new_edge_and_unique_event
+                            if and_node_id not in self.id_edges["out"]:
+                                self.id_edges["out"][and_node_id] = {}
                             self.id_edges["out"][and_node_id][edge_idx_and_unique_event] = new_edge_and_unique_event
                     else:  # parallel activities are not the only successors of the split XOR
                         # insert a split AND operator between the split XOR and the parallel activities
@@ -607,6 +615,8 @@ class BasisGraph:
                                      "label": "", "type": "DirectedEdge", "variants": and_node_variants}}
                         self.edges.append(new_edge_xor_and)
                         edge_idx_xor_and = len(self.edges) - 1
+
+                        self.id_edges["in"][and_node_id] = {}
                         self.id_edges["in"][and_node_id][edge_idx_xor_and] = new_edge_xor_and
                         self.id_edges["out"][xor_node_id][edge_idx_xor_and] = new_edge_xor_and
 
@@ -619,7 +629,10 @@ class BasisGraph:
                                          "label": "", "type": "DirectedEdge", "variants": node_variants}}
                             self.edges.append(new_edge_and_unique_event)
                             edge_idx_and_unique_event = len(self.edges) - 1
+                            self.id_edges["in"][node_id] = {}
                             self.id_edges["in"][node_id][edge_idx_and_unique_event] = new_edge_and_unique_event
+                            if and_node_id not in self.id_edges["out"]:
+                                self.id_edges["out"][and_node_id] = {}
                             self.id_edges["out"][and_node_id][edge_idx_and_unique_event] = new_edge_and_unique_event
 
                     # add the AND join node
@@ -641,7 +654,11 @@ class BasisGraph:
                                          "label": "", "type": "DirectedEdge", "variants": node_variants}}
                             self.edges.append(new_edge_unique_event_and)
                             edge_idx_unique_event_and = len(self.edges) - 1
+
+                            if and_node_id not in self.id_edges["in"]:
+                                self.id_edges["in"][and_node_id] = {}
                             self.id_edges["in"][and_node_id][edge_idx_unique_event_and] = new_edge_unique_event_and
+                            self.id_edges["out"][node_id] = {}
                             self.id_edges["out"][node_id][edge_idx_unique_event_and] = new_edge_unique_event_and
                     else:  # parallel activities are not the only predecessors of the join XOR
                         # insert a join AND operator between the parallel activities and the join XOR
@@ -675,7 +692,9 @@ class BasisGraph:
                                      "label": "", "type": "DirectedEdge", "variants": and_node_variants}}
                         self.edges.append(new_edge_and_xor)
                         edge_idx_and_xor = len(self.edges) - 1
+
                         self.id_edges["in"][xor_node_id][edge_idx_and_xor] = new_edge_and_xor
+                        self.id_edges["out"][and_node_id] = {}
                         self.id_edges["out"][and_node_id][edge_idx_and_xor] = new_edge_and_xor
 
                         # add a new edge from every unique event node to the AND node
@@ -687,8 +706,17 @@ class BasisGraph:
                                          "label": "", "type": "DirectedEdge", "variants": node_variants}}
                             self.edges.append(new_edge_unique_event_and)
                             edge_idx_unique_event_and = len(self.edges) - 1
+
+                            if and_node_id not in self.id_edges["in"]:
+                                self.id_edges["in"][and_node_id] = {}
                             self.id_edges["in"][and_node_id][edge_idx_unique_event_and] = new_edge_unique_event_and
+                            self.id_edges["out"][node_id] = {}
                             self.id_edges["out"][node_id][edge_idx_unique_event_and] = new_edge_unique_event_and
+
+        # if some successors of a split xor node are identical,
+        # they will be merged;
+        # repeat as long as new changes are made to the graph
+        self.merge_paths()
 
         print("graph created")
 
@@ -714,7 +742,7 @@ class BasisGraph:
             # next node
             node_id = stack.pop()
             node_idx = self.events_by_index[node_id]
-            event_id = node_id
+            event_label = self.graph["graph"][node_idx]["data"]["label"]
 
             if "_XOR_JOIN" in node_id:
                 pa.set_end_gateway(node_idx, len(edges_in[node_id]))
@@ -722,20 +750,18 @@ class BasisGraph:
 
             if "_XOR_SPLIT" in node_id:
                 # node_id is now a join xor of the block or a graph leaf
-                end_node_id, event_id = self.add_block_iter(node_id)
-                # node_id is split xor
+                end_node_id, event_label = self.add_block_iter(node_id)
+                # node_id is the split xor
                 pa.block_start_end[node_id] = end_node_id
-                # node_id is now join xor
+                # node_id is now the join xor
                 node_id = end_node_id
 
             # add an event label or a block footprint to the parallel activity
-            pa.add_event(node_idx, event_id)
+            pa.add_event(node_idx, event_label)
 
-            try:
-                # edges_out throws an exception, if a node has no successors (=> the node is a leaf)
+            # if the node is not a leaf
+            if node_id in edges_out:
                 stack.append(next(iter(edges_out[node_id].values()))["data"]["target"])
-            except:
-                pass
 
     '''
     RECURSIVE VERSION
@@ -888,21 +914,6 @@ class BasisGraph:
         self.remove_edges(block_start_id, "in")
         self.remove_edges(block_end_id, "out")
 
-    def remove_edges(self, node_id, direction):
-        if node_id in self.id_edges[direction]:
-            edges_out_to_remove = self.id_edges[direction][node_id]
-            for edge_idx_to_remove in edges_out_to_remove:
-                if direction == "in":  # delete the corresponding out-edge of predecessor
-                    pred_id = self.edges[edge_idx_to_remove]["data"]["source"]
-                    if pred_id in self.id_edges["out"]:
-                        del self.id_edges["out"][self.edges[edge_idx_to_remove]["data"]["source"]][edge_idx_to_remove]
-                else:  # delete the corresponding in-edge of successor
-                    succ_id = self.edges[edge_idx_to_remove]["data"]["target"]
-                    if succ_id in self.id_edges["in"]:
-                        del self.id_edges["in"][self.edges[edge_idx_to_remove]["data"]["target"]][edge_idx_to_remove]
-                self.edges[edge_idx_to_remove] = None
-            del self.id_edges[direction][node_id]
-
     def get_label_by_id(self, node_id):
         node_idx = self.events_by_index[node_id]
         return self.graph["graph"][node_idx]["data"]["label"]
@@ -954,14 +965,205 @@ class BasisGraph:
 
         return this_join_xor_id, other_join_xor_id
 
+    def remove_node(self, node_idx):
+        node_id = self.graph["graph"][node_idx]["data"]["id"]
+        self.graph["graph"][node_idx] = None
+        del self.events_by_index[node_id]
+        self.remove_edges(node_id, "in")
+        self.remove_edges(node_id, "out")
+
+    def remove_edges(self, node_id, direction):
+        if node_id in self.id_edges[direction]:
+            edges_to_remove = self.id_edges[direction][node_id]
+            for edge_idx_to_remove in edges_to_remove:
+                if direction == "in":  # delete the corresponding out-edge of predecessor
+                    pred_id = self.edges[edge_idx_to_remove]["data"]["source"]
+                    if pred_id in self.id_edges["out"]:
+                        del self.id_edges["out"][pred_id][edge_idx_to_remove]
+                        if len(self.id_edges["out"][pred_id]) == 0:
+                            del self.id_edges["out"][pred_id]
+                else:  # delete the corresponding in-edge of successor
+                    succ_id = self.edges[edge_idx_to_remove]["data"]["target"]
+                    if succ_id in self.id_edges["in"]:
+                        del self.id_edges["in"][succ_id][edge_idx_to_remove]
+                        if len(self.id_edges["in"][succ_id]) == 0:
+                            del self.id_edges["in"][succ_id]
+                self.edges[edge_idx_to_remove] = None
+            del self.id_edges[direction][node_id]
+
+    def merge_paths(self, graph_type = None):
+        changed = True
+        while changed:
+            changed = False
+            for node_idx in range(len(self.graph["graph"])):
+                if self.graph["graph"][node_idx] is None:
+                    continue  # one of deleted xor successors
+
+                node_id = self.graph["graph"][node_idx]["data"]["id"]
+                node_type = self.graph["graph"][node_idx]["data"]["type"]
+                if "_XOR_SPLIT" in node_id and node_type == "XOR":
+                    # successor label -> [original successor index, new xor index, original succ -> new xor edge index]
+                    unique_events = {}
+                    # check all the xor successors
+                    for edges_idx_succ, edge_succ in self.id_edges["out"][node_id].copy().items():
+                        succ_id = edge_succ["data"]["target"]
+                        succ_idx = self.events_by_index[succ_id]
+                        succ_label = self.graph["graph"][succ_idx]["data"]["label"]
+
+                        if succ_label not in unique_events:
+                            unique_events[succ_label] = [succ_idx, None, None]  # original xor successor
+                        else:
+                            changed = True  # the graph will be changed here
+                            # add successor xor node
+                            # if a xor successor, that is identical to the original xor successor, has its own successors
+                            if succ_id in self.id_edges["out"]:
+                                if unique_events[succ_label][1] is None:  # if no xor added yet
+                                    # adding the new xor node
+                                    xor_node_id = f'{self.graph["graph"][unique_events[succ_label][0]]["data"]["id"]}_XOR_SPLIT'
+                                    self.graph["graph"].append(
+                                        {"data": {"id": xor_node_id, "label": "X", "type": "XOR",
+                                                  "variants": None}})  # variants will be added later
+                                    unique_events[succ_label][1] = len(self.graph["graph"]) - 1
+                                    self.events_by_index[xor_node_id] = unique_events[succ_label][1]
+
+                                    # original xor successor
+                                    orig_node_id = self.graph["graph"][unique_events[succ_label][0]]["data"]["id"]
+
+                                    # if the original xor successor has successors
+                                    if orig_node_id in self.id_edges["out"]:
+                                        # add an edge between the new xor node and the successor of the original xor successor
+                                        for edges_idx_succ, edge_succ in self.id_edges["out"][orig_node_id].items():
+                                            succ_node = edge_succ["data"][
+                                                "target"]  # successor of the original xor successor
+                                            new_edge_xor_origsuccnode = {
+                                                "data": {"id": f"{xor_node_id}_{succ_node}", "source": xor_node_id,
+                                                         "target": succ_node, "label": "",
+                                                         "type": "DirectedEdge",
+                                                         "variants": edge_succ["data"]["variants"]}}
+                                            self.edges.append(new_edge_xor_origsuccnode)
+
+                                            # remember an index of the inserted (new xor -> succ of the original xor succ)-edge in edges
+                                            edges_idx_xor_curnodesucc = len(self.edges) - 1
+
+                                            self.id_edges["in"][succ_node] = {}  # as only one in-edge possible
+                                            self.id_edges["in"][succ_node][
+                                                edges_idx_xor_curnodesucc] = new_edge_xor_origsuccnode
+                                            self.id_edges["out"][xor_node_id] = {}
+                                            self.id_edges["out"][xor_node_id][
+                                                edges_idx_xor_curnodesucc] = new_edge_xor_origsuccnode
+
+                                            # remove the old edge from the graph;
+                                            # the old ones will be replaced with None so as not to disrupt indexing
+                                            self.edges[edges_idx_succ] = None
+
+                                    # add an edge between the original xor successor and the new xor node
+                                    new_edge_cur_xor = {
+                                        "data": {"id": f"{orig_node_id}_{xor_node_id}", "source": orig_node_id,
+                                                 "target": xor_node_id, "label": "",
+                                                 "type": "DirectedEdge",
+                                                 "variants": None}}  # variants will be added later
+                                    self.edges.append(new_edge_cur_xor)
+
+                                    # remember an index of the inserted (original xor succ -> new xor)-edge in edges
+                                    edge_idx_cur_xor = len(self.edges) - 1
+                                    # assign the new xor node to the original xor successor
+                                    unique_events[succ_label][2] = edge_idx_cur_xor
+
+                                    # remove the out-edge of the original xor successor
+                                    self.id_edges["out"][orig_node_id] = {}
+                                    # add the edge to the new xor node
+                                    self.id_edges["out"][orig_node_id][edge_idx_cur_xor] = new_edge_cur_xor
+                                    self.id_edges["in"][xor_node_id] = {}
+                                    self.id_edges["in"][xor_node_id][edge_idx_cur_xor] = new_edge_cur_xor
+
+                                # add an edge between the new xor and the successor of the identical xor successor
+                                for edge_idx_idec, edge_idec in self.id_edges["out"][succ_id].items():
+                                    succ_idec = edge_idec["data"]["target"]
+                                    xor_node_id = self.graph["graph"][unique_events[succ_label][1]]["data"]["id"]
+                                    new_edge_xor_succidec = {
+                                        "data": {"id": f"{xor_node_id}_{succ_idec}", "source": xor_node_id,
+                                                 "target": succ_idec, "label": "", "type": "DirectedEdge",
+                                                 "variants": edge_idec["data"]["variants"]}}
+                                    self.edges.append(new_edge_xor_succidec)
+
+                                    # remember an index of the inserted (new xor -> succ of the identical xor succ)-edge in edges
+                                    edge_idx_xor_succidec = len(self.edges) - 1
+
+                                    if xor_node_id not in self.id_edges["out"]:  # if the original node has no successors
+                                        self.id_edges["out"][xor_node_id] = {}
+                                    self.id_edges["out"][xor_node_id][edge_idx_xor_succidec] = new_edge_xor_succidec
+                                    # edge from succ_idec to its predecessor will be removed later in remove_node()
+                                    self.id_edges["in"][succ_idec][edge_idx_xor_succidec] = new_edge_xor_succidec
+
+                            # add all variants of the identical xor successor to the original xor successor
+                            self.graph["graph"][unique_events[succ_label][0]]["data"]["variants"] = deep_merge_two_dicts(
+                                self.graph["graph"][unique_events[succ_label][0]]["data"]["variants"],
+                                self.graph["graph"][succ_idx]["data"]["variants"])
+
+                            # remove the identical xor successor
+                            self.remove_node(succ_idx)
+
+                    # set variants of the new xors and edges between the original xor successors and the new xors
+                    for succ_xor in unique_events.values():
+                        # if a new xor was added
+                        if succ_xor[1] is not None:
+                            # variants of the current original xor successor
+                            succ_variants = self.graph["graph"][succ_xor[0]]["data"]["variants"]
+                            # in-edge of the original xor successor
+                            in_edge = list(self.id_edges["in"][self.graph["graph"][succ_xor[0]]["data"]["id"]].values())[0]
+                            # set variants of the original xor successor to its in-edge
+                            in_edge["data"]["variants"] = succ_variants
+                            # set variants of the original xor successor to the new xor
+                            self.graph["graph"][succ_xor[1]]["data"]["variants"] = succ_variants
+                            # set variants of the original xor successor to the edge
+                            # between the original xor successor and the new xor
+                            self.edges[succ_xor[2]]["data"]["variants"] = succ_variants
+
+                    # if all the successors of the split xor were identical,
+                    # remove the xor operator, as they were merged to one node
+                    if len(self.id_edges["out"][node_id]) == 1:
+                        pred_id = next(iter(self.id_edges["in"][node_id].values()))["data"]["source"]
+
+                        # remove the split operator
+                        self.remove_node(self.events_by_index[node_id])
+
+                        if graph_type == "epc":
+                            # predecessor node of the function which precedes the split xor
+                            # should be connected with the successor of the split xor
+                            function_id = pred_id
+                            pred_id = next(iter(self.id_edges["in"][function_id].values()))["data"]["source"]
+
+                            # remove the function node
+                            self.remove_node(self.events_by_index[function_id])
+
+                        # successor of the split xor
+                        succ_idx = list(unique_events.values())[0][0]  # only one original xor successor
+                        succ_id = self.graph["graph"][succ_idx]["data"]["id"]
+
+                        # add an edge between the predecessor and the successor of the split xor
+                        new_edge_pred_succ = {
+                            "data": {"id": f"{pred_id}_{succ_id}", "source": pred_id,
+                                     "target": succ_id,
+                                     "label": "",
+                                     "type": "DirectedEdge",
+                                     "variants": self.graph["graph"][succ_idx]["data"]["variants"]}}
+                        self.edges.append(new_edge_pred_succ)
+
+                        # remember an index of the inserted (pred -> succ)-edge in edges
+                        edge_idx_pred_succ = len(self.edges) - 1
+
+                        self.id_edges["out"][pred_id] = {}
+                        self.id_edges["out"][pred_id][edge_idx_pred_succ] = new_edge_pred_succ
+                        self.id_edges["in"][succ_id] = {}
+                        self.id_edges["in"][succ_id][edge_idx_pred_succ] = new_edge_pred_succ
+
+            if not changed: break
 
 '''
     Merges dictionaries and nested dictionaries in these dictionaries.
     Helps to deep merge variants.
     Updates the first dictionary parameter directly, so makes no copy of it.
 '''
-
-
 def deep_merge_two_dicts(x, y):
     z = x.copy()
     for key in z:

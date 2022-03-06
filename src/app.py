@@ -1,5 +1,7 @@
 import json
 import os
+
+import flask
 import jsonpickle
 import requests as requests
 
@@ -8,7 +10,8 @@ import time
 
 from databases.mariadb_services import mariadb_service as mariadb
 from databases.mongodb_services import mongodb_service as mongodb
-import src.eventlog.sapdata as sap
+import src.eventlog.sapdata as sapdata
+import src.eventlog.csvdata as csvdata
 
 # FIXME DEBUG
 from src.graphs.bpmnbuilder import create_bpmn
@@ -24,44 +27,46 @@ from src.model.basis_graph import BasisGraph
 
 import copy
 
-app = Flask(__name__)
+paco = Flask(__name__)
 
 
-@app.route('/graphs')
-def calculate_new_graph():  # put application's code here
+@paco.route('/graphs', methods=["GET", "POST"])
+def get_graphs():
     start = time.time()
 
-    init()
+    if request.method == 'GET':
+        filters = request.args.getlist('filters')
+
+        if ct.Configs.REPRODUCIBLE:
+            if not os.path.exists(f"casesvariants.json"):
+                cases, variants = sapdata.read_sap_data(filters)
+                with open('casesvariants.json', 'w') as f:
+                    variants_json = jsonpickle.encode(variants)
+                    json.dump(variants_json, f)
+            else:
+                with open('casesvariants.json', 'r') as f:
+                    variants_json = json.load(f)
+                    variants = jsonpickle.decode(variants_json)
+        else:
+            cases, variants = sapdata.read_sap_data(filters)
+    else:  # csv uploaded
+        variants = csvdata.parse_csv(request.files["csv-graph"])
+
+    create_graphs(variants)
 
     end = time.time()
     request_duration = (end - start)
     print(f"\n<--- Execution duration: {request_duration} --->")
     # response.headers.add("Access-Control-Allow-Origin", "*")
-    return 'Der Graph ist fertig!', 204
+    return 'Ready!', 204
 
 def get_cases():
     string = requests.get('http://localhost:8080/api/event-log').content  # TODO
     return string
 
 
-def init():
-    ct.set_language('E')
-    filters = request.args.getlist('filters')
-
-    if ct.Configs.DEBUG:
-        variants = gen_test_variants()
-    elif ct.Configs.REPRODUCIBLE:
-        if not os.path.exists(f"casesvariants.json"):
-            cases, variants = sap.read_sap_data(filters)
-            with open('casesvariants.json', 'w') as f:
-                variants_json = jsonpickle.encode(variants)
-                json.dump(variants_json, f)
-        else:
-            with open('casesvariants.json', 'r') as f:
-                variants_json = json.load(f)
-                variants = jsonpickle.decode(variants_json)
-    else:
-        cases, variants = sap.read_sap_data(filters)
+def create_graphs(variants):
+    ct.set_language('D')
 
     dfg = create_dfg(variants)
     print("\nDfg created")
@@ -85,13 +90,13 @@ def init():
     graph_dictionary = {"dfg": dfg, "epc": epc, "bpmn": bpmn}
 
     # mongodb.upsert(str(size)+"_basis", graph_dictionary)
-    mongodb.upsert("all_test1_big", graph_dictionary)
+    mongodb.upsert("debug_and_small", graph_dictionary)
 
     print("Graphes stored")
 
 
 # FIXME DEBUG
-def gen_test_variants():
+def gen_test_variants_epc():
     event_A1 = Event("A_1", "A")
     event_B1 = Event("B_1", "B")
     event_C1 = Event("C_1", "C")
@@ -138,7 +143,7 @@ def gen_test_variants():
     return [variant_ABCD, variant_ABC, variant_AE]
 
 
-def gen_test_cases():
+def gen_test_cases_epc():
     event_A1 = Event("A_1", "A")
     event_B1 = Event("B_1", "B")
     event_A2 = Event("A_2", "A")
@@ -169,17 +174,32 @@ def gen_test_cases():
     return [case_B, case_AC1, case_AC2, case_AA, case_A4]
 
 
+def gen_test_cases_and_small():
+    event_C1 = Event("C_1", "C")
+    event_A1 = Event("A_1", "A")
+    event_B1 = Event("B_1", "B")
+    event_D1 = Event("D_1", "D")
+    event_C2 = Event("C_2", "C")
+    event_B2 = Event("B_2", "B")
+    event_A2 = Event("A_2", "A")
+    event_D2 = Event("D_2", "D")
+
+    case_CABD = Case("Case_CABD")
+    case_CABD.events.append(event_C1)
+    case_CABD.events.append(event_A1)
+    case_CABD.events.append(event_B1)
+    case_CABD.events.append(event_D1)
+
+    case_CBAD = Case("Case_CBAD")
+    case_CBAD.events.append(event_C2)
+    case_CBAD.events.append(event_B2)
+    case_CBAD.events.append(event_A2)
+    case_CBAD.events.append(event_D2)
+
+    return [case_CABD, case_CBAD]
+
+
 if __name__ == '__main__':
     mariadb.init_database()  # Connect to MariaDB
     mongodb.init_database()  # Connect to MongoDB
-    # sys.setrecursionlimit(2000)
-    app.run()
-    '''
-    # example insert
-    generally = {"nodes": [1, 2, 3], "edges": ['aaaaa', 'b', 'c']}
-    epk = {"nodes": [1, 2, 3], "edges": ['a', 'b', 'c']}
-    bpmn = {"nodes": [1, 2, 3], "edges": ['a', 'b', 'c']}
-    graph_dictionary = {"generally": generally, "epk": epk, "bpmn": bpmn}
-    mongodb.upsert(1, graph_dictionary)
-    # ---
-    '''
+    paco.run()

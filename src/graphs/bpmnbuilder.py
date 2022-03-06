@@ -15,6 +15,7 @@ def create_bpmn(basis_graph):
     edges = basis_graph.edges
     id_edges = basis_graph.id_edges
     events_by_index = basis_graph.events_by_index
+    # variants of the start node
     all_variants = bpmn["graph"][0]["data"]["variants"]
 
     print("removing None values")
@@ -76,7 +77,7 @@ def create_bpmn(basis_graph):
     for node in bpmn["graph"]:
         # if a leaf
         node_id = node["data"]["id"]
-        if node_id not in id_edges["out"]:
+        if node_id not in id_edges["out"] and node_id != end_id:
             # add an edge from the leaf to the xor node
             new_edge_leaf_xor = {
                 "data": {"id": f"{node_id}_{xor_node_id}", "source": node_id,
@@ -90,6 +91,9 @@ def create_bpmn(basis_graph):
             id_edges["in"][xor_node_id][edges_idx_leaf_xor] = new_edge_leaf_xor
             id_edges["out"][node_id] = {}
             id_edges["out"][node_id][edges_idx_leaf_xor] = new_edge_leaf_xor
+
+    # merge identical nodes as successors of split xor operators and their successors
+    basis_graph.merge_paths("bpmn")
 
     # adding the process pool
     # TODO PROCESS LABEL
