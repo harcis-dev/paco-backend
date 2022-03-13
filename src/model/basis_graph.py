@@ -35,65 +35,82 @@ class BasisGraph:
         for idx, variant in enumerate(variants):  # FIXME DEBUG REMOVE IDX
             all_variants[variant.id] = {}
             var_event_pred = None
-            event_node = None
+            found_node = None
             already_there = False
-            for event_idx, var_event in enumerate(variant.events):
+            for var_event_idx, var_event in enumerate(variant.events):
                 event_ids = {}  # for event ids in cases
                 found_node = None
                 already_there = False
 
                 # find all event ids (for each case) of the current event for the current variant
                 for case in variant.cases:
-                    event_id = case.events[event_idx].id
+                    event_id = case.events[var_event_idx].id
                     all_variants[variant.id][case.id] = event_id
                     # the current event's index in the variant's list of events
                     # corresponds to the current event's index in the case's list of events
                     event_ids[case.id] = event_id  # "case_0" : "event_id_0"
                     # DEBUG
-                    # if var_event.id.split("_")[0] != case.events[event_idx].id.split("_")[0]:
-                    #     print(f"{var_event.id.split('_')[0]} vs {case.events[event_idx].id.split('_')[0]}")
+                    # if var_event.id.split("_")[0] != case.events[var_event_idx].id.split("_")[0]:
+                    #     print(f"{var_event.id.split('_')[0]} vs {case.events[var_event_idx].id.split('_')[0]}")
                     #     print(f"variant events: {variant.events}")
                     #     print(f"case events: {case.events}")
                     #     raise
 
+                # find all identical events in variants;
+                # are there any events with the same name as the var_event node (potentially in another variant)?
                 if var_event.name in self.events_by_name:
+                    # for all the events with this name
                     for event_by_name in self.events_by_name[var_event.name]:
+                        # the event_by_name node and the var_event node has different predecessors,
+                        # but maybe they have the same successors?
                         if not event_by_name.has_this_predecessor(var_event_pred):
-                            if event_idx != len(variant.events) - 1:
-                                # successor of the current var_event
-                                var_event_succ = variant.events[event_idx + 1]
+                            # var_event is not the last node of its case
+                            if var_event_idx != len(variant.events) - 1:
+                                # successor of the var_event node
+                                var_event_succ = variant.events[var_event_idx + 1]
+                                # are there any events with the same successor as the var_event node?
                                 if var_event_succ.name in self.events_by_name:
-                                    for event_succ_by_name in self.events_by_name[var_event_succ.name]:
+                                    # for all the events with the name as the successor of var_event
+                                    for var_event_succ_by_name in self.events_by_name[var_event_succ.name]:
+                                        # the successor of event_by_name has the same name as the var_event successor,
+                                        # and the event_by_name is not the direct predecessor of var_event
+                                        # (so that var_event_pred does not point to itself after merging)
                                         if event_by_name.has_this_successor(
-                                                event_succ_by_name) and var_event_pred != event_by_name:
-                                            if var_event_pred != event_by_name and bool(
-                                                    event_by_name.predecessors) == var_event_pred is not None:
+                                                var_event_succ_by_name) and var_event_pred != event_by_name:
+                                            # both event_by_name and var_event have at least one or no predecessor
+                                            if (not event_by_name.predecessors) == var_event_pred is None:
+                                                # var_event is already in the graph and corresponds to event_by_name
                                                 found_node = event_by_name
                                                 break
 
                                     if found_node is not None:
-                                        event_node = found_node
                                         already_there = True
                                         break
-                            else:
-                                if var_event_pred is None == (not event_by_name.predecessors) and (
+                            else:  # var_event is the last node of its case
+                                # both event_by_name and var_event have at least one or no predecessor
+                                # and the event_by_name node is also the last node of its case
+                                # and the event_by_name is not the direct predecessor of var_event
+                                # (so that var_event_pred does not point to itself after merging)
+                                if (not event_by_name.predecessors) == var_event_pred is None and (
                                         not event_by_name.successors) and var_event_pred != event_by_name:
                                     found_node = event_by_name
                                     break
 
                                 if found_node is not None:
-                                    event_node = found_node
                                     already_there = True
                                     break
-                        else:
-                            var_event_has_succ = event_idx != len(variant.events) - 1
+                        else:  # the event_by_name node and the var_event node has the same predecessor
+                            var_event_has_succ = var_event_idx != len(variant.events) - 1
+                            # both event_by_name and var_event have at least one or no successor
+                            # and the event_by_name is not the direct predecessor of var_event
+                            # (so that var_event_pred does not point to itself after merging)
                             if bool(event_by_name.successors) == var_event_has_succ and var_event_pred != event_by_name:
                                 found_node = event_by_name
                                 already_there = True
                                 break
 
                 if found_node is None:
-                    new_e = Event(f"{variant.id}_{event_idx}_{var_event.name}", var_event.name)
+                    new_e = Event(f"{variant.id}_{var_event_idx}_{var_event.name}", var_event.name)
 
                     self.graph["graph"].append(
                         {"data": {"id": new_e.id, "label": new_e.name, "type": "node",
@@ -112,16 +129,15 @@ class BasisGraph:
                     self.graph["graph"][found_node.node_idx]["data"]["variants"][variant.id] = event_ids
                     print(f"foundEvent: {found_node.event.id}")
 
-                event_node = found_node
                 if var_event_pred is not None:
-                    var_event_pred.successors.append(event_node)
-                    event_node.predecessors.append(var_event_pred)
+                    var_event_pred.successors.append(found_node)
+                    found_node.predecessors.append(var_event_pred)
 
                     # searching for an edge only if the event was found/is already in the graph
                     found_edge = False
                     for edge in self.edges:
                         if edge["data"]["source"] == var_event_pred.event.id and \
-                                edge["data"]["target"] == event_node.event.id:
+                                edge["data"]["target"] == found_node.event.id:
                             # add the current variant to the map of variants of the edge
                             edge["data"]["variants"][variant.id] = event_ids
                             found_edge = True
@@ -129,31 +145,31 @@ class BasisGraph:
 
                     if not found_edge:
                         new_edge = {
-                            "data": {"id": f"{var_event_pred.event.id}_{event_node.event.id}",
-                                     "source": var_event_pred.event.id, "target": event_node.event.id, "label": "",
+                            "data": {"id": f"{var_event_pred.event.id}_{found_node.event.id}",
+                                     "source": var_event_pred.event.id, "target": found_node.event.id, "label": "",
                                      "type": "DirectedEdge", "variants": {variant.id: event_ids}}}
                         self.edges.append(new_edge)
 
                         # remember an index of the inserted edge in edges
                         edge_idx = len(self.edges) - 1
 
-                        if event_node.event.id not in self.id_edges["in"]:
-                            self.id_edges["in"][event_node.event.id] = {}
-                        self.id_edges["in"][event_node.event.id][edge_idx] = new_edge
+                        if found_node.event.id not in self.id_edges["in"]:
+                            self.id_edges["in"][found_node.event.id] = {}
+                        self.id_edges["in"][found_node.event.id][edge_idx] = new_edge
 
                         if var_event_pred.event.id not in self.id_edges["out"]:
                             self.id_edges["out"][var_event_pred.event.id] = {}
                         self.id_edges["out"][var_event_pred.event.id][edge_idx] = new_edge
 
                 elif not already_there:
-                    self.start_nodes.append(event_node.event.id)
+                    self.start_nodes.append(found_node.event.id)
 
-                var_event_pred = event_node
+                var_event_pred = found_node
 
             if not already_there:
-                if event_node.event.name not in self.end_nodes:
-                    self.end_nodes[event_node.event.name] = {}
-                self.end_nodes[event_node.event.name][event_node.event.id] = event_node.node_idx
+                if found_node.event.name not in self.end_nodes:
+                    self.end_nodes[found_node.event.name] = {}
+                self.end_nodes[found_node.event.name][found_node.event.id] = found_node.node_idx
 
         if len(self.start_nodes) > 1:
             xor_node_id = f"start_XOR_SPLIT"
@@ -265,7 +281,7 @@ class BasisGraph:
                 # remove the old in-edges from the target node
                 del self.id_edges["in"][target_node][edge_idx]
                 if len(self.id_edges["in"][target_node]) == 0:
-                   del self.id_edges["in"][target_node]
+                    del self.id_edges["in"][target_node]
 
             # update in and out edge lists with the (current node -> xor)-edge
             self.id_edges["out"][node_id] = {}  # remove all the old edges
@@ -328,7 +344,7 @@ class BasisGraph:
                 # remove the old out-edge from the source node
                 del self.id_edges["out"][source_node][edge_idx]
                 if len(self.id_edges["out"][source_node]) == 0:
-                   del self.id_edges["out"][source_node]
+                    del self.id_edges["out"][source_node]
 
             # update in and out edge lists with the (xor -> current node)-edge
             self.id_edges["in"][node_id] = {}  # remove all the old self.edges
@@ -495,14 +511,14 @@ class BasisGraph:
                 they should be handled right -- only one of them will be taken into account.
                 In general, it means that the #paths must be equal to the result of the
                 factorial of #activities divided by the product of factorials of activity frequencies.
-                
+
                 Example:
                 (XOR_SPLIT) -> (A) -> (A) -> (B) -> (XOR_JOIN)
                 (XOR_SPLIT) -> (B) -> (A) -> (A) -> (XOR_JOIN)
                 (XOR_SPLIT) -> (A) -> (B) -> (A) -> (XOR_JOIN)
                 In this case, the parallelism is present, since
                 fac(3) / (fac(2) * fac(1)) = 3
-                
+
                 Thr result would be as follows:
                 (AND_SPLIT) -> (A) -> (AND_JOIN)
                 (AND_SPLIT) -> (B) -> (AND_JOIN)
@@ -712,11 +728,6 @@ class BasisGraph:
                             self.id_edges["in"][and_node_id][edge_idx_unique_event_and] = new_edge_unique_event_and
                             self.id_edges["out"][node_id] = {}
                             self.id_edges["out"][node_id][edge_idx_unique_event_and] = new_edge_unique_event_and
-
-        # if some successors of a split xor node are identical,
-        # they will be merged;
-        # repeat as long as new changes are made to the graph
-        #self.merge_paths()
 
         print("graph created")
 
@@ -991,7 +1002,7 @@ class BasisGraph:
                 self.edges[edge_idx_to_remove] = None
             del self.id_edges[direction][node_id]
 
-    def merge_paths(self, graph_type = None):
+    def merge_paths(self, graph_type=None):
         changed = True
         while changed:
             changed = False
@@ -1089,14 +1100,16 @@ class BasisGraph:
                                     # remember an index of the inserted (new xor -> succ of the identical xor succ)-edge in edges
                                     edge_idx_xor_succidec = len(self.edges) - 1
 
-                                    if xor_node_id not in self.id_edges["out"]:  # if the original node has no successors
+                                    if xor_node_id not in self.id_edges[
+                                        "out"]:  # if the original node has no successors
                                         self.id_edges["out"][xor_node_id] = {}
                                     self.id_edges["out"][xor_node_id][edge_idx_xor_succidec] = new_edge_xor_succidec
                                     # edge from succ_idec to its predecessor will be removed later in remove_node()
                                     self.id_edges["in"][succ_idec][edge_idx_xor_succidec] = new_edge_xor_succidec
 
                             # add all variants of the identical xor successor to the original xor successor
-                            self.graph["graph"][unique_events[succ_label][0]]["data"]["variants"] = deep_merge_two_dicts(
+                            self.graph["graph"][unique_events[succ_label][0]]["data"][
+                                "variants"] = deep_merge_two_dicts(
                                 self.graph["graph"][unique_events[succ_label][0]]["data"]["variants"],
                                 self.graph["graph"][succ_idx]["data"]["variants"])
 
@@ -1110,7 +1123,8 @@ class BasisGraph:
                             # variants of the current original xor successor
                             succ_variants = self.graph["graph"][succ_xor[0]]["data"]["variants"]
                             # in-edge of the original xor successor
-                            in_edge = list(self.id_edges["in"][self.graph["graph"][succ_xor[0]]["data"]["id"]].values())[0]
+                            in_edge = \
+                            list(self.id_edges["in"][self.graph["graph"][succ_xor[0]]["data"]["id"]].values())[0]
                             # set variants of the original xor successor to its in-edge
                             in_edge["data"]["variants"] = succ_variants
                             # set variants of the original xor successor to the new xor
@@ -1128,13 +1142,15 @@ class BasisGraph:
                         self.remove_node(self.events_by_index[node_id])
 
                         if graph_type == "epc":
-                            # predecessor node of the function which precedes the split xor
-                            # should be connected with the successor of the split xor
-                            function_id = pred_id
-                            pred_id = next(iter(self.id_edges["in"][function_id].values()))["data"]["source"]
+                            # remove function node before the split xor, that was removed
+                            if "_XOR_SPLIT" in pred_id:
+                                # predecessor node of the function which precedes the split xor
+                                # should be connected with the successor of the split xor
+                                function_id = pred_id
+                                pred_id = next(iter(self.id_edges["in"][function_id].values()))["data"]["source"]
 
-                            # remove the function node
-                            self.remove_node(self.events_by_index[function_id])
+                                # remove the function node
+                                self.remove_node(self.events_by_index[function_id])
 
                         # successor of the split xor
                         succ_idx = list(unique_events.values())[0][0]  # only one original xor successor
@@ -1159,11 +1175,14 @@ class BasisGraph:
 
             if not changed: break
 
+
 '''
     Merges dictionaries and nested dictionaries in these dictionaries.
     Helps to deep merge variants.
     Updates the first dictionary parameter directly, so makes no copy of it.
 '''
+
+
 def deep_merge_two_dicts(x, y):
     z = x.copy()
     for key in z:

@@ -10,6 +10,9 @@ from src.configs import configs as ct
 
 
 def create_epc(basis_graph, is_csv):
+    # merge identical successors of split xor nodes
+    #basis_graph.merge_paths()
+
     epc = basis_graph.graph
 
     # edges will be added at the end of the graph creation,

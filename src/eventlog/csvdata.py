@@ -7,63 +7,56 @@ from src.model.variant import Variant
 
 
 def parse_csv(csv_file):
-    if csv_file is None:
-        return
+    stream = io.TextIOWrapper(csv_file.stream._file, "UTF8", newline=None)
+    csv_dict = csv.DictReader(stream)
 
-    #stream = io.StringIO(csv_file.stream.read().decode("UTF8"), newline=None)
-    with open('events.csv', newline=None, encoding='utf-8') as stream:
+    cases_dict = {}
+    cases = []
 
-        csvreader = csv.reader(stream)
-        cases_dict = {}
-        cases = []
+    # case id, position, activity, mandt, bukrs, gjahr, belnr, timestamp
+    idx = 0
+    for event_csv in csv_dict:
+        cid = event_csv["case id"]
+        if cid not in cases_dict:
+            cases_dict[cid] = []
 
-        # 057_0,1,Kreditoren Rechnung,100,8001,2016,1900009869,2021-12-15 20:49:08.987209
-        #len = sum(1 for line in stream)
-        idx = 0
-        for event_csv in csvreader:
-            #print(f"Read {idx} out of {len}")
+        e_name = event_csv["activity"]
+        event = Event(f"{e_name.replace(' ', '_')}_{cid}_{idx}", e_name)
 
-            cid = event_csv[0]
-            if cid not in cases_dict:
-                cases_dict[cid] = []
+        attributes = event_csv
+        del attributes["case id"], attributes["activity"]
 
-            e_name = event_csv[2]
-            event = Event(f"{e_name.replace(' ', '_')}_{cid}_{idx}", e_name)
-            event.attributes = {"bukrs": event_csv[4],
-                                "pos": event_csv[1],
-                                "gjahr": event_csv[5],
-                                "mandt": event_csv[3],
-                                "belnr": event_csv[6],
-                                "timestamp": event_csv[7]}
-            cases_dict[cid].append(event)
-            idx += 1
-            if idx == 100: # TODO DEBUG
-                break
+        event.attributes = attributes
+        cases_dict[cid].append(event)
 
-        variants = []
-        variants_footprints = []
+        idx += 1
+        if idx == 100: # TODO DEBUG
+            break
 
-        for cid, events in cases_dict.items():
-            case = Case(cid)
-            events.sort(key=lambda x: x.attributes["pos"])
-            case.events = events
-            cases.append(cid)
+    variants = []
+    variants_footprints = []
 
-            found_idx = -1
-            for var_idx, var_footprint in enumerate(variants_footprints):
-                if case == var_footprint:
-                    found_idx = var_idx
+    for cid, events in cases_dict.items():
+        case = Case(cid)
+        events.sort(key=lambda x: x.attributes["position"])
+        case.events = events
+        cases.append(cid)
 
-            if found_idx != -1:
-                # check if the same case is already in variants
-                for var_cid in variants[found_idx].cases:
-                    if cid == var_cid:
-                        found_idx = -1
-                    if found_idx != -1:
-                        variants[found_idx].cases.append(case)
-                        break
-            else:
-                variants_footprints.append(case)
-                variants.append(Variant(case))
+        found_idx = -1
+        for var_idx, var_footprint in enumerate(variants_footprints):
+            if case == var_footprint:
+                found_idx = var_idx
 
-        return variants
+        if found_idx != -1:
+            # check if the same case is already in variants
+            for var_cid in variants[found_idx].cases:
+                if cid == var_cid:
+                    found_idx = -1
+                if found_idx != -1:
+                    variants[found_idx].cases.append(case)
+                    break
+        else:
+            variants_footprints.append(case)
+            variants.append(Variant(case))
+
+    return variants

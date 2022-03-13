@@ -36,8 +36,20 @@ def get_graphs():
 
     is_csv = False
 
-    is_csv = True
-    variants = csvdata.parse_csv("")
+    if request.method == "GET":
+        if ct.Configs.EPC_EXAMP:
+            variants = gen_test_variants_epc()
+        else:
+            cases, variants = sapdata.read_sap_data(None)
+    elif request.method == "POST":
+        is_csv = True
+        try:
+            file = request.files['file']
+        except KeyError:
+            return 'Error!', 418
+        variants = csvdata.parse_csv(file)
+    else:
+        variants = []
 
     create_graphs(variants, is_csv)
 
