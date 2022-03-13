@@ -1,9 +1,9 @@
-from src.configs.configs import EpcLabels
-from src.databases.mariadb_services.mariadb_service import functions
-from src.model.basis_graph import deep_merge_two_dicts
+from paco.configs.configs import EpcLabels
+from paco.databases.mariadb_services.mariadb_service import functions
+from paco.model.basis_graph import deep_merge_two_dicts
 
 # FIXME DEBUG
-from src.configs.configs import BpmnLabels
+from paco.configs.configs import BpmnLabels
 
 
 # ---
@@ -45,6 +45,7 @@ def create_bpmn(basis_graph):
     id_edges["in"][end_id] = {}
     id_edges["in"][end_id][edges_idx_xor_end] = new_edge_xor_end
     id_edges["out"][xor_node_id] = {}
+    id_edges["in"][xor_node_id] = {}
     id_edges["out"][xor_node_id][edges_idx_xor_end] = new_edge_xor_end
 
     # connect all leaves with the xor node
@@ -63,8 +64,6 @@ def create_bpmn(basis_graph):
             # remember an index of the inserted (leaf -> xor)-edge in edges
             edges_idx_leaf_xor = len(edges) - 1
 
-            if xor_node_id not in id_edges["in"]:
-                id_edges["in"][xor_node_id] = {}
             id_edges["in"][xor_node_id][edges_idx_leaf_xor] = new_edge_leaf_xor
             id_edges["out"][node_id] = {}
             id_edges["out"][node_id][edges_idx_leaf_xor] = new_edge_leaf_xor

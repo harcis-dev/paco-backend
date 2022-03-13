@@ -1,10 +1,11 @@
 import math
 from itertools import islice
 
-from src.model.event import Event
-from src.model.eventnode import EventNode
-from src.model.parallel_activity import ParallelActivity
+from paco.model.event import Event
+from paco.model.eventnode import EventNode
+from paco.model.parallel_activity import ParallelActivity
 
+from paco.configs import configs as ct
 
 class BasisGraph:
     def __init__(self):
@@ -26,7 +27,7 @@ class BasisGraph:
     def create_basis_graph(self, variants):
 
         all_variants = {}
-        artificial_start_node = {"data": {"id": "start", "label": "Start", "type": "node",
+        artificial_start_node = {"data": {"id": "start", "label": "Start", "type": ct.BasisLabels.NODE,
                                           "variants": all_variants}}
         self.graph["graph"].append(artificial_start_node)
         self.events_by_index["start"] = 0
@@ -113,7 +114,7 @@ class BasisGraph:
                     new_e = Event(f"{variant.id}_{var_event_idx}_{var_event.name}", var_event.name)
 
                     self.graph["graph"].append(
-                        {"data": {"id": new_e.id, "label": new_e.name, "type": "node",
+                        {"data": {"id": new_e.id, "label": new_e.name, "type": ct.BasisLabels.NODE,
                                   "variants": {variant.id: event_ids}}})
                     # remember an index of the inserted node
                     node_idx = len(self.graph["graph"]) - 1
@@ -1019,9 +1020,14 @@ class BasisGraph:
                     for edges_idx_succ, edge_succ in self.id_edges["out"][node_id].copy().items():
                         succ_id = edge_succ["data"]["target"]
                         succ_idx = self.events_by_index[succ_id]
+
+                        succ_type = self.graph["graph"][succ_idx]["data"]["type"]
+                        if succ_type not in ct.NODE_TYPES:
+                            continue
+
                         succ_label = self.graph["graph"][succ_idx]["data"]["label"]
 
-                        if succ_label not in unique_events:
+                        if succ_label not in unique_events:  # operators schouldn't be merged
                             unique_events[succ_label] = [succ_idx, None, None]  # original xor successor
                         else:
                             changed = True  # the graph will be changed here
@@ -1056,7 +1062,7 @@ class BasisGraph:
                                             # remember an index of the inserted (new xor -> succ of the original xor succ)-edge in edges
                                             edges_idx_xor_curnodesucc = len(self.edges) - 1
 
-                                            self.id_edges["in"][succ_node] = {}  # as only one in-edge possible
+                                            self.id_edges["in"][succ_node] = {}
                                             self.id_edges["in"][succ_node][
                                                 edges_idx_xor_curnodesucc] = new_edge_xor_origsuccnode
                                             self.id_edges["out"][xor_node_id] = {}

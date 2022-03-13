@@ -1,9 +1,9 @@
-from src.configs.configs import EpcLabels
-from src.databases.mariadb_services.mariadb_service import functions
-from src.model.basis_graph import deep_merge_two_dicts
+from paco.configs.configs import EpcLabels
+from paco.databases.mariadb_services.mariadb_service import functions
+from paco.model.basis_graph import deep_merge_two_dicts
 
 # FIXME DEBUG
-from src.configs import configs as ct
+from paco.configs import configs as ct
 
 
 # ---
@@ -54,10 +54,14 @@ def create_epc(basis_graph, is_csv):
             if node_id != "start":
                 node_variants = node["data"]["variants"]
                 node_label = node["data"]["label"]
+                node_type = node["data"]["type"]
                 node["data"]["label"] = f"{node_label} {EpcLabels.EVENT_LABEL}"
 
                 function_id = f"{node_id}_{id_iter}_{node_label}_function"
-                function_label = f"{functions(list(node_variants)[0])}{function_label_suffix}" if not (ct.Configs.DEBUG or is_csv) else f"{node_label}{function_label_suffix}"
+                if not (ct.Configs.DEBUG or is_csv or node_type == "XOR"):
+                    function_label = f"{functions(list(node_variants)[0])}{function_label_suffix}"
+                else:
+                    function_label = f"{node_label}{function_label_suffix}"
                 function_node = {"data": {"id": function_id, "label": function_label, "type": EpcLabels.FUNCTION,
                                           "variants": node_variants}}
 

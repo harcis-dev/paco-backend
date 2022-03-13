@@ -1,36 +1,34 @@
 import json
 import os
 
-import flask
 import jsonpickle
 import requests as requests
 
-from flask import Flask, request
+from flask import request
 import time
 
-from databases.mariadb_services import mariadb_service as mariadb
 from databases.mongodb_services import mongodb_service as mongodb
-import src.eventlog.sapdata as sapdata
-import src.eventlog.csvdata as csvdata
+import paco.eventlog.sapdata as sapdata
+import paco.eventlog.csvdata as csvdata
 
 # FIXME DEBUG
-from src.graphs.bpmnbuilder import create_bpmn
-from src.graphs.epcbuilder import create_epc
-from src.model.event import Event
-from src.model.case import Case
-from src.model.variant import Variant
+from paco.graphs.bpmnbuilder import create_bpmn
+from paco.graphs.epcbuilder import create_epc
+from paco.model.event import Event
+from paco.model.case import Case
+from paco.model.variant import Variant
 # ---
 
-from src.configs import configs as ct
-from src.graphs.dfgbuilder import create_dfg
-from src.model.basis_graph import BasisGraph
+from paco.configs import configs as ct
+from paco.graphs.dfgbuilder import create_dfg
+from paco.model.basis_graph import BasisGraph
+
+from configs.blueprints import paco_bp
 
 import copy
 
-paco = Flask(__name__)
 
-
-@paco.route('/graphs', methods=["GET", "POST"])
+@paco_bp.route(paco_bp.url_prefix, methods=["GET", "POST"])
 def get_graphs():
     start = time.time()
 
@@ -39,6 +37,16 @@ def get_graphs():
     if request.method == "GET":
         if ct.Configs.EPC_EXAMP:
             variants = gen_test_variants_epc()
+        elif ct.Configs.REPRODUCIBLE:
+            if not os.path.exists(f"casesvariants.json"):
+                cases, variants = sapdata.read_sap_data(None)
+                with open('casesvariants.json', 'w') as f:
+                    variants_json = jsonpickle.encode(variants)
+                    json.dump(variants_json, f)
+            else:
+                with open('casesvariants.json', 'r') as f:
+                    variants_json = json.load(f)
+                    variants = jsonpickle.decode(variants_json)
         else:
             cases, variants = sapdata.read_sap_data(None)
     elif request.method == "POST":
@@ -65,7 +73,7 @@ def get_cases():
 
 
 def create_graphs(variants, is_csv):
-    ct.set_language('D')
+    #ct.set_language('D')
 
     dfg = create_dfg(variants)
     print("\nDfg created")
@@ -83,12 +91,8 @@ def create_graphs(variants, is_csv):
     bpmn = create_bpmn(copy_basis_graph_bpmn)
     print("\nBpmn created")
 
-    # with open('data5000basis.json', 'w') as f:
-    #    json.dump(basis_graph.graph, f)
-
     graph_dictionary = {"dfg": dfg, "epc": epc, "bpmn": bpmn}
 
-    # mongodb.upsert(str(size)+"_basis", graph_dictionary)
     mongodb.upsert("debug_small", graph_dictionary)
 
     print("Graphes stored")
@@ -196,9 +200,3 @@ def gen_test_cases_and_small():
     case_CBAD.events.append(event_D2)
 
     return [case_CABD, case_CBAD]
-
-
-if __name__ == '__main__':
-    mariadb.init_database()  # Connect to MariaDB
-    mongodb.init_database()  # Connect to MongoDB
-    paco.run()

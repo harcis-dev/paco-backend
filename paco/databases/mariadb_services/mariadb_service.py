@@ -3,8 +3,8 @@ import mariadb
 import sys
 
 # Global variable with connection to MariaDB
-from src.configs import configs as ct
-from src.model.event import Event
+from paco.configs import configs as ct
+from paco.model.event import Event
 
 conn = None
 

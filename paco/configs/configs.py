@@ -9,11 +9,11 @@ class Configs:
     """
     LANGUAGE = 'E'
 
-    DEBUG = True
-    EPC_EXAMP = True
-    DEBUG_CASES = "EPC"
-    REPRODUCIBLE = False
-    JXES = False
+    JXES = True
+    DEBUG = False and not JXES
+    EPC_EXAMP = True and DEBUG
+    DEBUG_CASES = "AND_SMALL"
+    REPRODUCIBLE = False and not DEBUG
     SIZE = 2000
 
 
@@ -33,7 +33,7 @@ class Attributes:
 class DfgLabels:
     """A class with constants that represent common dfg labels.
 
-    The constants will be set in `src.configs.configs.set_language`.
+    The constants will be set in `paco.configs.configs.set_language`.
 
     Attributes
     __________
@@ -45,11 +45,22 @@ class DfgLabels:
     START = 'Start'
     END = 'End'
 
+class BasisLabels:
+    """A class with constants that represent abstract basis graph labels.
+
+    The constants should be translated into the corresponding graph type notation.
+
+    Attributes
+    __________
+    NODE : str
+        A constant that represents the abstract node type.
+    """
+    NODE = 'node'
 
 class EpcLabels:
     """A class with constants that represent common epc labels.
 
-    The constants will be defined via `src.configs.configs.set_labels_language` in `src.configs.configs.set_language`.
+    The constants will be defined via `paco.configs.configs.set_labels_language` in `paco.configs.configs.set_language`.
 
     Attributes
     __________
@@ -79,7 +90,7 @@ class EpcLabels:
 class BpmnLabels:
     """A class with constants that represent common bpmn labels.
 
-    The constants will be defined via `src.configs.configs.set_labels_language` in `src.configs.configs.set_language`.
+    The constants will be defined via `paco.configs.configs.set_labels_language` in `paco.configs.configs.set_language`.
 
     Attributes
     __________
@@ -106,8 +117,15 @@ class BpmnLabels:
     ACTIVITY = 'GenericTask'
     ACTIVITY_LABEL = ''
 
+
+'''
+    Node types, that should be merged.
+'''
+NODE_TYPES = [BasisLabels.NODE, EpcLabels.EVENT, EpcLabels.FUNCTION, BpmnLabels.ACTIVITY]
+
+
 def set_language(lang_str):
-    """Sets `src.configs.configs.Configs.LANGUAGE` and invokes other language setting methods.
+    """Sets `paco.configs.configs.Configs.LANGUAGE` and invokes other language setting methods.
 
     Parameters
     ----------
@@ -116,7 +134,7 @@ def set_language(lang_str):
 
     See Also
     --------
-    src.configs.configs.Configs
+    paco.configs.configs.Configs
     """
 
     Configs.LANGUAGE = lang_str
@@ -125,7 +143,7 @@ def set_language(lang_str):
 
 
 def set_labels_language():
-    """Sets model labels in the language specified with `src.configs.configs.Configs.LANGUAGE`.
+    """Sets model labels in the language specified with `paco.configs.configs.Configs.LANGUAGE`.
 
     Parameters
     ----------
@@ -134,8 +152,8 @@ def set_labels_language():
 
     See Also
     --------
-    src.configs.configs.Configs
-    src.configs.configs.set_language
+    paco.configs.configs.Configs
+    paco.configs.configs.set_language
     """
 
     if Configs.LANGUAGE == 'E':
