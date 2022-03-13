@@ -9,7 +9,7 @@ from src.configs import configs as ct
 # ---
 
 
-def create_epc(basis_graph):
+def create_epc(basis_graph, is_csv):
     epc = basis_graph.graph
 
     # edges will be added at the end of the graph creation,
@@ -54,7 +54,7 @@ def create_epc(basis_graph):
                 node["data"]["label"] = f"{node_label} {EpcLabels.EVENT_LABEL}"
 
                 function_id = f"{node_id}_{id_iter}_{node_label}_function"
-                function_label = f"{functions(list(node_variants)[0])}{function_label_suffix}" if not ct.Configs.DEBUG else f"{node_label}{function_label_suffix}"
+                function_label = f"{functions(list(node_variants)[0])}{function_label_suffix}" if not (ct.Configs.DEBUG or is_csv) else f"{node_label}{function_label_suffix}"
                 function_node = {"data": {"id": function_id, "label": function_label, "type": EpcLabels.FUNCTION,
                                           "variants": node_variants}}
 

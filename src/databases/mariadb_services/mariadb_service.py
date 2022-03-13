@@ -86,7 +86,7 @@ def events(cid):
         events = []
         for idx, (concept_name, alt_concept_name, lifecycle_transition, org_resource, time_timestamp, transaction) in enumerate(cur):
             e_name = concept_name if concept_name is not None else alt_concept_name
-            e = Event(f"{e_name}_{cid}_{idx}", e_name)
+            e = Event(f"{e_name.replace(' ', '_')}_{cid}_{idx}", e_name)
             e.attributes = {"lifecycle_transition": lifecycle_transition, "org_resource": org_resource,
                             "time_timestamp": time_timestamp, "transaction": transaction}
             events.append(e)

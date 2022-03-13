@@ -9,7 +9,8 @@ class Configs:
     """
     LANGUAGE = 'E'
 
-    DEBUG = False
+    DEBUG = True
+    EPC_EXAMP = True
     DEBUG_CASES = "EPC"
     REPRODUCIBLE = False
     JXES = False
@@ -58,6 +59,8 @@ class EpcLabels:
         A constant that represents the event node type.
     EVENT_LABEL : str
         A constant that represents the event node label addition.
+    XOR : str
+        A constant that represents the xor operator type.
     FUNCTION : str
         A constant that represents the function node type.
     EDGE : str
@@ -68,6 +71,7 @@ class EpcLabels:
     START_LABEL = ''
     EVENT = 'Event'
     EVENT_LABEL = ''
+    XOR = 'XOR'
     FUNCTION = 'Function'
     EDGE = 'InformationFlow'
     SPLIT_FUNCTION = ''
@@ -101,7 +105,6 @@ class BpmnLabels:
     EDGE = 'StandardEdge'
     ACTIVITY = 'GenericTask'
     ACTIVITY_LABEL = ''
-
 
 def set_language(lang_str):
     """Sets `src.configs.configs.Configs.LANGUAGE` and invokes other language setting methods.

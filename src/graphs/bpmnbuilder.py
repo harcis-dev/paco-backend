@@ -18,45 +18,19 @@ def create_bpmn(basis_graph):
     # variants of the start node
     all_variants = bpmn["graph"][0]["data"]["variants"]
 
-    print("removing None values")
-    temp = []
-    for node in bpmn["graph"]:
-        if node is not None:
-            temp.append(node)
-    bpmn["graph"] = temp
-
     print("\nTranslating to BPMN")
-
-    print("\nRenaming attributes")
-
-    # rename attributes
-    for node in bpmn["graph"]:
-        node["data"]["parent"] = BpmnLabels.PROCESS
-        if node["data"]["type"] != "XOR":
-            if node["data"]["id"] != "start":
-                # activities
-                node["data"]["type"] = BpmnLabels.ACTIVITY
-                node["data"]["label"] = f"{node['data']['label']} {BpmnLabels.ACTIVITY_LABEL}"
-            else:
-                # start event
-                del node["data"]["label"]
-                node["data"]["type"] = BpmnLabels.START
-        else:
-            # xor
-            del node["data"]["label"]
-            node["data"]["type"] = BpmnLabels.XOR
 
     # add the end event
     end_id = "End"
     bpmn["graph"].append({"data": {"id": end_id, "parent": BpmnLabels.PROCESS, "type": BpmnLabels.END,
-                                   "variants": all_variants}})
+                                   "label": "", "variants": all_variants}})
     events_by_index[end_id] = len(bpmn["graph"]) - 1
 
     # add the join xor node
     xor_node_id = f'{end_id}_XOR_JOIN'
     bpmn["graph"].append(
-        {"data": {"id": xor_node_id, "parent": BpmnLabels.PROCESS, "type": BpmnLabels.XOR,
-                  "variants": all_variants}})
+        {"data": {"id": xor_node_id, "parent": BpmnLabels.PROCESS, "type": "XOR",  # will be renamed
+                  "label": "X", "variants": all_variants}})
     events_by_index[xor_node_id] = len(bpmn["graph"]) - 1
 
     # add an edge from the xor node to the end event
@@ -75,6 +49,8 @@ def create_bpmn(basis_graph):
 
     # connect all leaves with the xor node
     for node in bpmn["graph"]:
+        if node is None:
+            continue
         # if a leaf
         node_id = node["data"]["id"]
         if node_id not in id_edges["out"] and node_id != end_id:
@@ -87,13 +63,40 @@ def create_bpmn(basis_graph):
             # remember an index of the inserted (leaf -> xor)-edge in edges
             edges_idx_leaf_xor = len(edges) - 1
 
-            id_edges["in"][xor_node_id] = {}
+            if xor_node_id not in id_edges["in"]:
+                id_edges["in"][xor_node_id] = {}
             id_edges["in"][xor_node_id][edges_idx_leaf_xor] = new_edge_leaf_xor
             id_edges["out"][node_id] = {}
             id_edges["out"][node_id][edges_idx_leaf_xor] = new_edge_leaf_xor
 
     # merge identical nodes as successors of split xor operators and their successors
     basis_graph.merge_paths("bpmn")
+
+    print("removing None values")
+    temp = []
+    for node in bpmn["graph"]:
+        if node is not None:
+            temp.append(node)
+    bpmn["graph"] = temp
+
+    print("\nRenaming attributes")
+
+    # rename attributes
+    for node in bpmn["graph"]:
+        node["data"]["parent"] = BpmnLabels.PROCESS
+        if node["data"]["type"] != "XOR":
+            if node["data"]["id"] != "start" and node["data"]["id"] != end_id:
+                # activities
+                node["data"]["type"] = BpmnLabels.ACTIVITY
+                node["data"]["label"] = f"{node['data']['label']} {BpmnLabels.ACTIVITY_LABEL}"
+            else:
+                # start event
+                del node["data"]["label"]
+                node["data"]["type"] = BpmnLabels.START
+        else:
+            # xor
+            del node["data"]["label"]
+            node["data"]["type"] = BpmnLabels.XOR
 
     # adding the process pool
     # TODO PROCESS LABEL

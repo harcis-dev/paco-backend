@@ -11,7 +11,7 @@ def parse_csv(csv_file):
         return
 
     #stream = io.StringIO(csv_file.stream.read().decode("UTF8"), newline=None)
-    with open('events.csv', newline=None) as stream:
+    with open('events.csv', newline=None, encoding='utf-8') as stream:
 
         csvreader = csv.reader(stream)
         cases_dict = {}
@@ -28,7 +28,7 @@ def parse_csv(csv_file):
                 cases_dict[cid] = []
 
             e_name = event_csv[2]
-            event = Event(f"{e_name}_{cid}_{idx}", e_name)
+            event = Event(f"{e_name.replace(' ', '_')}_{cid}_{idx}", e_name)
             event.attributes = {"bukrs": event_csv[4],
                                 "pos": event_csv[1],
                                 "gjahr": event_csv[5],
@@ -37,7 +37,7 @@ def parse_csv(csv_file):
                                 "timestamp": event_csv[7]}
             cases_dict[cid].append(event)
             idx += 1
-            if idx == 1000: # TODO DEBUG
+            if idx == 100: # TODO DEBUG
                 break
 
         variants = []

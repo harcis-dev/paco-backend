@@ -34,25 +34,12 @@ paco = Flask(__name__)
 def get_graphs():
     start = time.time()
 
-    if request.method == 'GET':
-        filters = request.args.getlist('filters')
+    is_csv = False
 
-        if ct.Configs.REPRODUCIBLE:
-            if not os.path.exists(f"casesvariants.json"):
-                cases, variants = sapdata.read_sap_data(filters)
-                with open('casesvariants.json', 'w') as f:
-                    variants_json = jsonpickle.encode(variants)
-                    json.dump(variants_json, f)
-            else:
-                with open('casesvariants.json', 'r') as f:
-                    variants_json = json.load(f)
-                    variants = jsonpickle.decode(variants_json)
-        else:
-            cases, variants = sapdata.read_sap_data(filters)
-    else:  # csv uploaded
-        variants = csvdata.parse_csv(request.files["csv-graph"])
+    is_csv = True
+    variants = csvdata.parse_csv("")
 
-    create_graphs(variants)
+    create_graphs(variants, is_csv)
 
     end = time.time()
     request_duration = (end - start)
@@ -65,7 +52,7 @@ def get_cases():
     return string
 
 
-def create_graphs(variants):
+def create_graphs(variants, is_csv):
     ct.set_language('D')
 
     dfg = create_dfg(variants)
@@ -78,7 +65,7 @@ def create_graphs(variants):
     copy_basis_graph_epc = copy.deepcopy(basis_graph)
     copy_basis_graph_bpmn = copy.deepcopy(basis_graph)
 
-    epc = create_epc(copy_basis_graph_epc)
+    epc = create_epc(copy_basis_graph_epc, is_csv)
     print("\nEpc created")
 
     bpmn = create_bpmn(copy_basis_graph_bpmn)
@@ -90,7 +77,7 @@ def create_graphs(variants):
     graph_dictionary = {"dfg": dfg, "epc": epc, "bpmn": bpmn}
 
     # mongodb.upsert(str(size)+"_basis", graph_dictionary)
-    mongodb.upsert("debug_and_small", graph_dictionary)
+    mongodb.upsert("debug_small", graph_dictionary)
 
     print("Graphes stored")
 

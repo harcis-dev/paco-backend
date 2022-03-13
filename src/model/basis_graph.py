@@ -716,7 +716,7 @@ class BasisGraph:
         # if some successors of a split xor node are identical,
         # they will be merged;
         # repeat as long as new changes are made to the graph
-        self.merge_paths()
+        #self.merge_paths()
 
         print("graph created")
 

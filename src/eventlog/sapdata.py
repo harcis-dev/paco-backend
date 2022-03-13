@@ -113,7 +113,7 @@ def read_sap_data(filters):
                 events = []
                 for idx, event_json in enumerate(case_json["events"]):
                     e_name = event_json['concept:name']
-                    event = Event(f"{e_name}_{cid}_{idx}", e_name)
+                    event = Event(f"{e_name.replace(' ', '_')}_{cid}_{idx}", e_name)
                     event.attributes = event_json
                     events.append(event)
                 # sort events in a case
