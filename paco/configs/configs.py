@@ -10,7 +10,7 @@ class Configs:
     LANGUAGE = 'E'
 
     JXES = False
-    DEBUG = True and not JXES
+    DEBUG = False and not JXES
     EPC_EXAMP = False and DEBUG
     DEBUG_CASES = "AND_SMALL"
     REPRODUCIBLE = False and not DEBUG and not JXES

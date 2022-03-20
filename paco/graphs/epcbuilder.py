@@ -100,7 +100,10 @@ def create_epc(basis_graph, is_csv):
                     edges[edges_idx] = None
 
                     # remove the old out-edge from the source node
-                    del id_edges["out"][source_node][edges_idx]
+                    try:
+                        del id_edges["out"][source_node][edges_idx]
+                    except KeyError:
+                        raise
 
                 print("Function and predecessors are connected")
 
