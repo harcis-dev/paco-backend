@@ -42,7 +42,7 @@ def create_epc(basis_graph, is_csv):
             function_label_suffix = ""
             if "_SPLIT" not in node_id:
                 node["data"]["type"] = EpcLabels.EVENT
-            else:
+            elif "_XOR_SPLIT" in node_id:
                 # if the predecessor node is not a function
                 # add a function before the split operator node
                 function_label_suffix = f" {EpcLabels.SPLIT_FUNCTION}"
