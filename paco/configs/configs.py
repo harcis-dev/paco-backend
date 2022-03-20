@@ -11,10 +11,10 @@ class Configs:
 
     JXES = False
     DEBUG = False and not JXES
-    EPC_EXAMP = False and DEBUG
+    EPC_EXAMP = True and DEBUG
     DEBUG_CASES = "AND_SMALL"
-    REPRODUCIBLE = True and not DEBUG and not JXES
-    SIZE = 2000
+    REPRODUCIBLE = False and not DEBUG and not JXES
+    SIZE = 3000
 
 
 class Attributes:

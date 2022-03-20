@@ -178,7 +178,7 @@ def gen_test_cases_epc():
 
 
 def gen_test_cases_and_small():
-    event_C1 = Event("C_1", "C")
+    event_C1 = Event("M_1", "M")
     event_A1 = Event("A_1", "A")
     event_B1 = Event("B_1", "B")
     event_D1 = Event("D_1", "D")
