@@ -9,11 +9,11 @@ class Configs:
     """
     LANGUAGE = 'E'
 
-    JXES = True
+    JXES = False
     DEBUG = False and not JXES
-    EPC_EXAMP = True and DEBUG
+    EPC_EXAMP = False and DEBUG
     DEBUG_CASES = "AND_SMALL"
-    REPRODUCIBLE = False and not DEBUG
+    REPRODUCIBLE = True and not DEBUG and not JXES
     SIZE = 2000
 
 

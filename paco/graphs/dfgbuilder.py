@@ -2,6 +2,10 @@ from paco.configs import configs as ct
 
 
 def create_dfg(variants):
+    if not variants:
+        print("no variants passed!")
+        raise
+
     pm = {"graph": []}
 
     # adding start and end nodes
