@@ -43,3 +43,23 @@ $ root@786b840a5df7:/# mongo -u admin -p
 ```
 Den gewählten Nutzernamen in der .env Datei bei MONGODB_USERNAME eintragen und das Passwort bei MONGODB_PASSWORD.
 Danach nochmal alle Docker-Container neustarten.
+
+### Flask-Server starten
+
+Um den Flask-Server zu starten, muss man sich im Projektordner `paco` befinden.
+
+Der Flask-Server im Development-Modus lässt sich über den folgenden Befehl starten:
+```
+flusk run
+```
+
+Vor dem Start des Servers muss der Name einer Flask-Anwendungsdatei dem Flask-Server über eine Umgebungsvariable zugänglich gemacht werden:
+```
+export FLASK_APP=debug_app
+```
+
+Damit die Graphen generiert werden können, sollen die folgenden Dienste laufen (als Docker-Container oder in der Konsole):
+
+- paco-frontend
+- paco-backend-graph-api
+- paco-data-extraction (für JXES-Dateien)
