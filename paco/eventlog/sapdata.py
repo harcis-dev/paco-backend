@@ -1,14 +1,14 @@
 import json
-from itertools import islice
 
-import paco.app
-from paco.databases.mariadb_services import mariadb_service
-from paco.model.case import Case
-from paco.model.event import Event
-from paco.model.variant import Variant
+from .. import app
+from ..databases.mariadb_services import mariadb_service
+from ..model.case import Case
+from ..model.event import Event
+from ..model.variant import Variant
 
 # FIXME DEBUG
-from paco.configs import configs as ct
+from ..configs import configs as ct
+
 
 class Filter:
     DEBITORS = "KUNNR"
@@ -16,6 +16,7 @@ class Filter:
     ACCOUNTS = "HKONT"
     USERS = "USNAM"
     FIXED_ASSETS = "ANLN1"
+
 
 '''
     Reads data from MariaDB and initializes cases
@@ -34,8 +35,8 @@ def read_sap_data(filters):
     if ct.Configs.DEBUG:
         debug_cases = []
         match ct.Configs.DEBUG_CASES:
-            case 'EPC': debug_cases = paco.app.gen_test_cases_epc()
-            case 'AND_SMALL': debug_cases = paco.app.gen_test_cases_and_small()
+            case 'EPC': debug_cases = app.gen_test_cases_epc()
+            case 'AND_SMALL': debug_cases = app.gen_test_cases_and_small()
         for c in debug_cases:
             cases.append(c.id)
             found_idx = -1
@@ -106,7 +107,7 @@ def read_sap_data(filters):
                     break
         else:
             # parse jxes to case-objects
-            cases_json = json.loads(paco.app.get_cases())["traces"]
+            cases_json = json.loads(app.get_cases())["traces"]
             for idx, case_json in enumerate(cases_json):  # FIXME DEBUG REMOVE IDX
                 cid = case_json["attrs"]["concept:name"]
                 case = Case(cid)

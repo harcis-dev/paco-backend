@@ -1,11 +1,8 @@
-from paco.configs.configs import EpcLabels
-from paco.databases.mariadb_services.mariadb_service import functions
-from paco.model.basis_graph import deep_merge_two_dicts
+from ..configs.configs import EpcLabels
+from ..databases.mariadb_services.mariadb_service import functions
 
 # FIXME DEBUG
-from paco.configs import configs as ct
-
-
+from ..configs import configs as ct
 # ---
 
 

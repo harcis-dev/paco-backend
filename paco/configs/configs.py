@@ -9,7 +9,7 @@ class Configs:
     """
     LANGUAGE = 'E'
 
-    JXES = False
+    JXES = True
     DEBUG = False and not JXES
     EPC_EXAMP = False and DEBUG
     DEBUG_CASES = "AND_SMALL"

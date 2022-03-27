@@ -1,12 +1,4 @@
-from paco.configs.configs import EpcLabels
-from paco.databases.mariadb_services.mariadb_service import functions
-from paco.model.basis_graph import deep_merge_two_dicts
-
-# FIXME DEBUG
-from paco.configs.configs import BpmnLabels
-
-
-# ---
+from ..configs.configs import BpmnLabels
 
 
 def create_bpmn(basis_graph):

@@ -7,7 +7,11 @@ services:
         - FLASK_APP=paco
         - FLASK_ENV=production
     ports:
-        - 80:5000
+        - 5000:5000
+    
+    volumes:
+      - ~/paco/paco_logs:/paco/paco_logs
+
 
   mariadb:
     image: mariadb

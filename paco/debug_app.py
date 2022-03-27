@@ -8,30 +8,43 @@ import requests as requests
 from flask import Flask, request
 import time
 
-from databases.mariadb_services import mariadb_service as mariadb
-from databases.mongodb_services import mongodb_service as mongodb
-import paco.eventlog.sapdata as sapdata
-import paco.eventlog.csvdata as csvdata
+from .databases.mariadb_services import mariadb_service as mariadb
+from .databases.mongodb_services import mongodb_service as mongodb
+from .eventlog import sapdata as sapdata
+from .eventlog import csvdata as csvdata
 
 # FIXME DEBUG
-from paco.graphs.bpmnbuilder import create_bpmn
-from paco.graphs.epcbuilder import create_epc
-from paco.model.event import Event
-from paco.model.case import Case
-from paco.model.variant import Variant
+from .graphs.bpmnbuilder import create_bpmn
+from .graphs.epcbuilder import create_epc
+from .model.event import Event
+from .model.case import Case
+from .model.variant import Variant
 # ---
 
-from paco.configs import configs as ct
-from paco.graphs.dfgbuilder import create_dfg
-from paco.model.basis_graph import BasisGraph
+from .configs import configs as ct
+from .graphs.dfgbuilder import create_dfg
+from .model.basis_graph import BasisGraph
 
 import copy
 
 paco = Flask(__name__)
 
-
 @paco.route('/graphs', methods=["GET", "POST"])
 def get_graphs():
+
+    # Logging
+    import logging
+    import os
+    log_filename = "paco_logs/paco_debug.log"
+    os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+    logging.FileHandler(log_filename, mode="w", encoding=None, delay=False)
+    logging.basicConfig(filename="paco_logs/paco_debug.log", level=logging.DEBUG)
+    logging.debug("I'm debug, I'm alive")
+    # -----------
+
+    mariadb.init_database()  # Connect to MariaDB
+    mongodb.init_database()  # Connect to MongoDB
+
     start = time.time()
 
     is_csv = False

@@ -1,11 +1,10 @@
 import math
-from itertools import islice
 
-from paco.model.event import Event
-from paco.model.eventnode import EventNode
-from paco.model.parallel_activity import ParallelActivity
+from ..model.event import Event
+from ..model.eventnode import EventNode
+from ..model.parallel_activity import ParallelActivity
 
-from paco.configs import configs as ct
+from ..configs import configs as ct
 
 
 class BasisGraph:

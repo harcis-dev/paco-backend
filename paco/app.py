@@ -7,23 +7,23 @@ import requests as requests
 from flask import request
 import time
 
-from databases.mongodb_services import mongodb_service as mongodb
-import paco.eventlog.sapdata as sapdata
-import paco.eventlog.csvdata as csvdata
+from .databases.mongodb_services import mongodb_service as mongodb
+from .eventlog import sapdata as sapdata
+from .eventlog import csvdata as csvdata
 
 # FIXME DEBUG
-from paco.graphs.bpmnbuilder import create_bpmn
-from paco.graphs.epcbuilder import create_epc
-from paco.model.event import Event
-from paco.model.case import Case
-from paco.model.variant import Variant
+from .graphs.bpmnbuilder import create_bpmn
+from .graphs.epcbuilder import create_epc
+from .model.event import Event
+from .model.case import Case
+from .model.variant import Variant
 # ---
 
-from paco.configs import configs as ct
-from paco.graphs.dfgbuilder import create_dfg
-from paco.model.basis_graph import BasisGraph
+from .configs import configs as ct
+from .graphs.dfgbuilder import create_dfg
+from .model.basis_graph import BasisGraph
 
-from configs.blueprints import paco_bp
+from .configs.blueprints import paco_bp
 
 import copy
 
@@ -33,6 +33,11 @@ def get_graphs():
     start = time.time()
 
     is_csv = False
+
+    # Logging to the file paco-backend/paco/paco_logs/paco_debug.log
+    import logging
+    from datetime import datetime
+    logging.debug(str(datetime.now(tz=None)) + " app.py")
 
     if request.method == "GET":
         if ct.Configs.EPC_EXAMP:

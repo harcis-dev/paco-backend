@@ -1,5 +1,4 @@
-from paco.configs import configs as ct
-from paco.model.case import Case
+from .case import Case
 
 
 class Variant(Case):

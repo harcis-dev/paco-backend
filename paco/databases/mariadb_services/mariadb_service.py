@@ -3,8 +3,8 @@ import mariadb
 import sys
 
 # Global variable with connection to MariaDB
-from paco.configs import configs as ct
-from paco.model.event import Event
+from ...configs import configs as ct
+from ...model.event import Event
 
 conn = None
 
@@ -12,7 +12,13 @@ conn = None
     Connection establishment and queries to MariaDB 
 '''
 
-
+'''
+user=os.environ.get('MARIADB_USER'),
+password=os.environ.get('MARIADB_PASS'),
+host=os.environ.get('MARIADB_HOST'),
+port=os.environ.get('MARIADB_PORT'),
+database=os.environ.get('MARIADB_NAME'),
+'''
 def init_database():
     try:
         global conn

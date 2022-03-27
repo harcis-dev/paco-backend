@@ -15,7 +15,7 @@ def init_database():
             username=os.environ.get('MONGO_ROOT_USER'),
             password=os.environ.get('MONGO_ROOT_PASSWORD'),
         )
-        print("Debug: Database connection established")
+        print("Debug: Trying to establish connection to mongodb")
         print("MondoDB-Server version:", conn.server_info()["version"])
         # database_names = conn.list_database_names()
         # print("\ndatabases:", database_names)
