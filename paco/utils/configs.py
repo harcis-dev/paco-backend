@@ -9,12 +9,13 @@ class Configs:
     """
     LANGUAGE = 'E'
 
-    JXES = True
-    DEBUG = True and not JXES
+    JXES = False
+    DEBUG = False and not JXES
     EPC_EXAMP = True and DEBUG
     DEBUG_CASES = "AND_SMALL"
     REPRODUCIBLE = False and not DEBUG and not JXES
-    SIZE = 100
+    SIZE = 1000
+
 
 class Errcodes:
     """

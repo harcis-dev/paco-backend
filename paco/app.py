@@ -7,6 +7,7 @@ import requests as requests
 
 from flask import Flask, request
 import time
+import datetime
 
 from paco.databases.mariadb_services import mariadb_service as mariadb
 from paco.databases.mongodb_services import mongodb_service as mongodb
@@ -24,12 +25,12 @@ from paco.model.variant import Variant
 from paco.utils import configs as ct, utils
 from paco.graphs.dfgbuilder import create_dfg
 from paco.model.basis_graph import BasisGraph
+from paco.utils.blueprints import paco_bp
 
 import copy
 
-paco_app = Flask(__name__)
-
-@paco_app.route('/graphs', methods=["GET", "POST"])
+#@paco_bp.route('/graphs', methods=["GET", "POST"])
+@paco_bp.route('/')
 def get_graphs():
     # Logging
     import logging
@@ -86,23 +87,9 @@ def get_graphs():
     return ('Ready!', 204) if ct.Errcodes.curr_errcode == 0 else (ct.Errcodes.ERR_MESSAGES[ct.Errcodes.curr_errcode], 500)
 
 
-@paco_app.route('/')
-def default_route():
-    return "Use '/graphs'", 418
-
-
-def get_cases():
-    from urllib3.exceptions import MaxRetryError
-    try:
-        cases_str = requests.get('http://localhost:8080/api/event-log').content  # TODO
-    except MaxRetryError as mre:
-        utils.print_error(mre)
-
-        ct.Errcodes.curr_errcode = ct.Errcodes.JXES_NO_CONNECTION
-
-        cases_str = ""
-
-    return cases_str
+#@paco_bp.route('/')
+#def default_route():
+#    return "Use '/graphs'", 418
 
 
 def create_graphs(variants, is_csv):
@@ -128,9 +115,9 @@ def create_graphs(variants, is_csv):
     # with open('data5000basis.json', 'w') as f:
     #    json.dump(basis_graph.graph, f)
 
-    graph_dictionary = {"dfg": dfg, "epc": epc, "bpmn": bpmn}
-
-    mongodb.upsert_graphs("epc_small", graph_dictionary)
+    now = datetime.datetime.now().strftime('%d-%m-%y_%H:%M:%S')
+    graph_dictionary = {"name": "graph_"+now, "dfg": dfg, "epc": epc, "bpmn": bpmn}
+    mongodb.upsert_graphs("graph_"+now, graph_dictionary)
 
     print("Graphes stored")
 
@@ -240,4 +227,4 @@ def gen_test_cases_and_small():
 
 
 if __name__ == '__main__':
-    paco_app.run()
+    paco_bp.run()

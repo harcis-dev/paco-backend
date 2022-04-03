@@ -1,13 +1,12 @@
 import json
 
-from paco import app
+import requests
+
 from paco.databases.mariadb_services import mariadb_service
 from paco.model.case import Case
 from paco.model.event import Event
 from paco.model.variant import Variant
-
-# FIXME DEBUG
-from paco.utils import configs as ct
+from paco.utils import configs as ct, utils
 
 
 class Filter:
@@ -34,9 +33,9 @@ def read_sap_data(filters):
     cases = []
     if ct.Configs.DEBUG:
         debug_cases = []
-        match ct.Configs.DEBUG_CASES:
-            case 'EPC': debug_cases = app.gen_test_cases_epc()
-            case 'AND_SMALL': debug_cases = app.gen_test_cases_and_small()
+        #match ct.Configs.DEBUG_CASES:
+        #    case 'EPC': debug_cases = app.gen_test_cases_epc()
+        #    case 'AND_SMALL': debug_cases = app.gen_test_cases_and_small()
         for c in debug_cases:
             cases.append(c.id)
             found_idx = -1
@@ -107,7 +106,7 @@ def read_sap_data(filters):
                     break
         else:
             # parse jxes to case-objects
-            cases_json = json.loads(app.get_cases())["traces"]
+            cases_json = json.loads(get_cases())["traces"]
             for idx, case_json in enumerate(cases_json):  # FIXME DEBUG REMOVE IDX
                 cid = case_json["attrs"]["concept:name"]
                 case = Case(cid)
@@ -146,3 +145,17 @@ def read_sap_data(filters):
     print("Cases and variants are read out from database")
 
     return cases, variants
+
+
+def get_cases():
+    from urllib3.exceptions import MaxRetryError
+    try:
+        cases_str = requests.get('http://localhost:8080/api/event-log').content  # TODO
+    except MaxRetryError as mre:
+        utils.print_error(mre)
+
+        ct.Errcodes.curr_errcode = ct.Errcodes.JXES_NO_CONNECTION
+
+        cases_str = ""
+
+    return cases_str

@@ -30,7 +30,7 @@ def init_database():
         conn = mariadb.connect(
             user="root",
             password="123456",
-            host="127.0.0.1",
+            host="host.docker.internal",
             port=8991,
             database="sap",
         )
