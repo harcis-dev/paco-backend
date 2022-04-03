@@ -55,7 +55,12 @@ flusk run
 
 Vor dem Start des Servers muss der Name einer Flask-Anwendungsdatei dem Flask-Server über eine Umgebungsvariable zugänglich gemacht werden:
 ```
-export FLASK_APP=debug_app
+export FLASK_APP=app
+```
+
+Um den automatischen Neustart des Server zu aktivieren, damit die Änderungen am Quellcode übernommen werden, soll man den Flask-Server im Development-Modus starten. Hierfür muss eine weitere Umgebungsvariable gesetzt werden:
+```
+export FLASK_ENV=development
 ```
 
 Damit die Graphen generiert werden können, sollen die folgenden Dienste laufen (als Docker-Container oder in der Konsole):
