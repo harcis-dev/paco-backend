@@ -1,84 +1,113 @@
 import json
 import os
 
+import flask
 import jsonpickle
 import requests as requests
 
-from flask import request
+from flask import Flask, request
 import time
 
-from .databases.mongodb_services import mongodb_service as mongodb
-from .eventlog import sapdata as sapdata
-from .eventlog import csvdata as csvdata
+from paco.databases.mariadb_services import mariadb_service as mariadb
+from paco.databases.mongodb_services import mongodb_service as mongodb
+from paco.eventlog import sapdata as sapdata
+from paco.eventlog import csvdata as csvdata
 
 # FIXME DEBUG
-from .graphs.bpmnbuilder import create_bpmn
-from .graphs.epcbuilder import create_epc
-from .model.event import Event
-from .model.case import Case
-from .model.variant import Variant
+from paco.graphs.bpmnbuilder import create_bpmn
+from paco.graphs.epcbuilder import create_epc
+from paco.model.event import Event
+from paco.model.case import Case
+from paco.model.variant import Variant
 # ---
 
-from .configs import configs as ct
-from .graphs.dfgbuilder import create_dfg
-from .model.basis_graph import BasisGraph
-
-from .configs.blueprints import paco_bp
+from paco.utils import configs as ct, utils
+from paco.graphs.dfgbuilder import create_dfg
+from paco.model.basis_graph import BasisGraph
 
 import copy
 
+paco_app = Flask(__name__)
 
-@paco_bp.route(paco_bp.url_prefix, methods=["GET", "POST"])
+@paco_app.route('/graphs', methods=["GET", "POST"])
 def get_graphs():
+    # Logging
+    import logging
+    import os
+    log_filename = "paco_logs/paco_debug.log"
+    os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+    logging.FileHandler(log_filename, mode="w", encoding=None, delay=False)
+    logging.basicConfig(filename="paco_logs/paco_debug.log", level=logging.DEBUG)
+    logging.debug("I'm debug, I'm alive")
+    # -----------
+
     start = time.time()
 
     is_csv = False
 
-    # Logging to the file paco-backend/paco/paco_logs/paco_debug.log
-    import logging
-    from datetime import datetime
-    logging.debug(str(datetime.now(tz=None)) + " app.py")
-
-    if request.method == "GET":
-        if ct.Configs.EPC_EXAMP:
-            variants = gen_test_variants_epc()
-        elif ct.Configs.REPRODUCIBLE:
-            if not os.path.exists(f"casesvariants.json"):
-                cases, variants = sapdata.read_sap_data(None)
-                with open('casesvariants.json', 'w') as f:
-                    variants_json = jsonpickle.encode(variants)
-                    json.dump(variants_json, f)
+    try:
+        if request.method == "GET":
+            if ct.Configs.EPC_EXAMP:
+                variants = gen_test_variants_epc()
+            elif ct.Configs.REPRODUCIBLE:
+                if not os.path.exists(f"casesvariants.json"):
+                    cases, variants = sapdata.read_sap_data(None)
+                    with open('casesvariants.json', 'w') as f:
+                        variants_json = jsonpickle.encode(variants)
+                        json.dump(variants_json, f)
+                else:
+                    with open('casesvariants.json', 'r') as f:
+                        variants_json = json.load(f)
+                        variants = jsonpickle.decode(variants_json)
             else:
-                with open('casesvariants.json', 'r') as f:
-                    variants_json = json.load(f)
-                    variants = jsonpickle.decode(variants_json)
+                cases, variants = sapdata.read_sap_data(None)
+        elif request.method == "POST":
+            is_csv = True
+            try:
+                file = request.files['file']
+            except KeyError:
+                return 'No file uploaded!', 400
+            variants = csvdata.parse_csv(file)
         else:
-            cases, variants = sapdata.read_sap_data(None)
-    elif request.method == "POST":
-        is_csv = True
-        try:
-            file = request.files['file']
-        except KeyError:
-            return 'Error!', 418
-        variants = csvdata.parse_csv(file)
-    else:
-        variants = []
+            variants = []
 
-    create_graphs(variants, is_csv)
+        create_graphs(variants, is_csv)
+    except Exception as ex:
+        utils.print_error(ex)
+        if ct.Errcodes.curr_errcode == 0:
+            # general error
+            ct.Errcodes.curr_errcode = ct.Errcodes.UNEXPECTED_ERROR
 
     end = time.time()
     request_duration = (end - start)
     print(f"\n<--- Execution duration: {request_duration} --->")
     # response.headers.add("Access-Control-Allow-Origin", "*")
-    return 'Ready!', 204
+
+    return ('Ready!', 204) if ct.Errcodes.curr_errcode == 0 else (ct.Errcodes.ERR_MESSAGES[ct.Errcodes.curr_errcode], 500)
+
+
+@paco_app.route('/')
+def default_route():
+    return "Use '/graphs'", 418
+
 
 def get_cases():
-    string = requests.get('http://localhost:8080/api/event-log').content  # TODO
-    return string
+    from urllib3.exceptions import MaxRetryError
+    try:
+        cases_str = requests.get('http://localhost:8080/api/event-log').content  # TODO
+    except MaxRetryError as mre:
+        utils.print_error(mre)
+
+        ct.Errcodes.curr_errcode = ct.Errcodes.JXES_NO_CONNECTION
+
+        cases_str = ""
+
+    return cases_str
 
 
 def create_graphs(variants, is_csv):
-    #ct.set_language('D')
+    if not variants:  # None or []
+        return None
 
     dfg = create_dfg(variants)
     print("\nDfg created")
@@ -96,9 +125,12 @@ def create_graphs(variants, is_csv):
     bpmn = create_bpmn(copy_basis_graph_bpmn)
     print("\nBpmn created")
 
+    # with open('data5000basis.json', 'w') as f:
+    #    json.dump(basis_graph.graph, f)
+
     graph_dictionary = {"dfg": dfg, "epc": epc, "bpmn": bpmn}
 
-    mongodb.upsert("debug_small", graph_dictionary)
+    mongodb.upsert_graphs("epc_small", graph_dictionary)
 
     print("Graphes stored")
 
@@ -205,3 +237,7 @@ def gen_test_cases_and_small():
     case_CBAD.events.append(event_D2)
 
     return [case_CABD, case_CBAD]
+
+
+if __name__ == '__main__':
+    paco_app.run()

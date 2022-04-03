@@ -1,9 +1,9 @@
 import io
 import csv
 
-from ..model.case import Case
-from ..model.event import Event
-from ..model.variant import Variant
+from paco.model.case import Case
+from paco.model.event import Event
+from paco.model.variant import Variant
 
 
 def parse_csv(csv_file):

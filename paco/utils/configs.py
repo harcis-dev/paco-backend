@@ -10,12 +10,55 @@ class Configs:
     LANGUAGE = 'E'
 
     JXES = True
-    DEBUG = False and not JXES
-    EPC_EXAMP = False and DEBUG
+    DEBUG = True and not JXES
+    EPC_EXAMP = True and DEBUG
     DEBUG_CASES = "AND_SMALL"
     REPRODUCIBLE = False and not DEBUG and not JXES
-    SIZE = 3000
+    SIZE = 100
 
+class Errcodes:
+    """
+    A class with constant codes of errors that can occur during the graph creation.
+
+    '''
+    Attributes
+    __________
+    UNEXPECTED_ERROR : int
+        An error code indicating that the raised exception was not expected.
+    JXES_NO_CONNECTION : int
+        An error code indicating that the data extraction system has not been started or is not reachable.
+    MARIADB_NO_CONNECTION : int
+        An error code indicating that MariaDB has not been started or is not reachable.
+    MARIADB_NO_DATA : int
+        An error code indicating that MariaDB does not contain the necessary tables, columns or entries.
+    MONGODB_NO_CONNECTION
+        An error code indicating that MongoDB has not been started or is not reachable.
+    MONGODB_UPSERT_ERROR
+        An error code indicating that the graph could not be inserted into MongoDB.
+    ERR_SUFFIX_CONNECTION : str
+        Ending of the error messages which indicate problems in establishing a connection.
+    ERR_MESSAGES : dict
+        Error messages for each error code.
+    """
+    UNEXPECTED_ERROR = -1
+    JXES_NO_CONNECTION = 1
+    MARIADB_NO_CONNECTION = 2
+    MARIADB_NO_DATA = 3
+    MONGODB_NO_CONNECTION = 4
+    MONGODB_UPSERT_ERROR = 5
+
+    ERR_SUFFIX_CONNECTION = " has not been started or is not reachable."
+    ERR_SUFFIX_DATA = " does not contain the necessary data to create graphs."
+
+    ERR_MESSAGES = {
+                    UNEXPECTED_ERROR: "An unexpected application error occurred.",
+                    JXES_NO_CONNECTION: "Data extraction system"+ERR_SUFFIX_CONNECTION,
+                    MARIADB_NO_CONNECTION: "MariaDB"+ERR_SUFFIX_CONNECTION,
+                    MARIADB_NO_DATA: "MariaDB"+ERR_SUFFIX_DATA,
+                    MONGODB_NO_CONNECTION: "MongoDB"+ERR_SUFFIX_CONNECTION,
+                    MONGODB_UPSERT_ERROR: "Graphs could not be inserted into MongoDB."}
+
+    curr_errcode = 0
 
 class Attributes:
     """
@@ -33,7 +76,7 @@ class Attributes:
 class DfgLabels:
     """A class with constants that represent common dfg labels.
 
-    The constants will be set in `paco.configs.configs.set_language`.
+    The constants will be set in `paco.utils.configs.set_language`.
 
     Attributes
     __________
@@ -60,7 +103,7 @@ class BasisLabels:
 class EpcLabels:
     """A class with constants that represent common epc labels.
 
-    The constants will be defined via `paco.configs.configs.set_labels_language` in `paco.configs.configs.set_language`.
+    The constants will be defined via `paco.utils.configs.set_labels_language` in `paco.utils.configs.set_language`.
 
     Attributes
     __________
@@ -90,7 +133,7 @@ class EpcLabels:
 class BpmnLabels:
     """A class with constants that represent common bpmn labels.
 
-    The constants will be defined via `paco.configs.configs.set_labels_language` in `paco.configs.configs.set_language`.
+    The constants will be defined via `paco.utils.configs.set_labels_language` in `paco.utils.configs.set_language`.
 
     Attributes
     __________
@@ -125,7 +168,7 @@ NODE_TYPES = [BasisLabels.NODE, EpcLabels.EVENT, EpcLabels.FUNCTION, BpmnLabels.
 
 
 def set_language(lang_str):
-    """Sets `paco.configs.configs.Configs.LANGUAGE` and invokes other language setting methods.
+    """Sets `paco.utils.configs.Configs.LANGUAGE` and invokes other language setting methods.
 
     Parameters
     ----------
@@ -134,7 +177,7 @@ def set_language(lang_str):
 
     See Also
     --------
-    paco.configs.configs.Configs
+    paco.utils.configs.Configs
     """
 
     Configs.LANGUAGE = lang_str
@@ -143,7 +186,7 @@ def set_language(lang_str):
 
 
 def set_labels_language():
-    """Sets model labels in the language specified with `paco.configs.configs.Configs.LANGUAGE`.
+    """Sets model labels in the language specified with `paco.utils.configs.Configs.LANGUAGE`.
 
     Parameters
     ----------
@@ -152,8 +195,8 @@ def set_labels_language():
 
     See Also
     --------
-    paco.configs.configs.Configs
-    paco.configs.configs.set_language
+    paco.utils.configs.Configs
+    paco.utils.configs.set_language
     """
 
     if Configs.LANGUAGE == 'E':

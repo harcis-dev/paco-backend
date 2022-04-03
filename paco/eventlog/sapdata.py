@@ -1,13 +1,13 @@
 import json
 
-from .. import app
-from ..databases.mariadb_services import mariadb_service
-from ..model.case import Case
-from ..model.event import Event
-from ..model.variant import Variant
+from paco import app
+from paco.databases.mariadb_services import mariadb_service
+from paco.model.case import Case
+from paco.model.event import Event
+from paco.model.variant import Variant
 
 # FIXME DEBUG
-from ..configs import configs as ct
+from paco.utils import configs as ct
 
 
 class Filter:
@@ -56,7 +56,7 @@ def read_sap_data(filters):
                 variants_footprints.append(c)
                 variants.append(Variant(c))
     else:
-        if not ct.Configs.JXES:
+        if not ct.Configs.JXES:  # MariaDB
             case_ids = set()
 
             print("Reading data...")
@@ -76,7 +76,7 @@ def read_sap_data(filters):
                         case_ids = set()  # then there is no element that satisfies the given filter conditions
                         break  # and further iterations unnecessary
 
-            print("Filters applied")
+                print("Filters applied")
 
             cases = []
             for idx, cid in enumerate(case_ids):  # FIXME DEBUG REMOVE IDX
@@ -140,9 +140,8 @@ def read_sap_data(filters):
                     variants.append(Variant(case))
 
                 # FIXME DEBUG
-                if idx == ct.Configs.SIZE:
-                    break
-
+                #if idx == ct.Configs.SIZE:
+                #    break
 
     print("Cases and variants are read out from database")
 

@@ -1,4 +1,4 @@
-from .case import Case
+from paco.model.case import Case
 
 
 class Variant(Case):

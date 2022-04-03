@@ -1,9 +1,5 @@
-from ..configs.configs import EpcLabels
-from ..databases.mariadb_services.mariadb_service import functions
-
-# FIXME DEBUG
-from ..configs import configs as ct
-# ---
+import paco.utils.configs as ct
+import paco.databases.mariadb_services.mariadb_service as ms
 
 
 def create_epc(basis_graph, is_csv):
@@ -23,7 +19,7 @@ def create_epc(basis_graph, is_csv):
 
     # renaming the start node
     print("Renaming the start node")
-    epc["graph"][0]["data"]["label"] = EpcLabels.START_LABEL
+    epc["graph"][0]["data"]["label"] = ct.EpcLabels.START_LABEL
 
     print("\nAdding functions")
     id_iter = 0
@@ -38,28 +34,28 @@ def create_epc(basis_graph, is_csv):
             # functions before split operators should have a special suffix
             function_label_suffix = ""
             if "_SPLIT" not in node_id:
-                node["data"]["type"] = EpcLabels.EVENT
+                node["data"]["type"] = ct.EpcLabels.EVENT
             elif "_XOR_SPLIT" in node_id:
                 # if the predecessor node is not a function
                 # add a function before the split operator node
-                function_label_suffix = f" {EpcLabels.SPLIT_FUNCTION}"
+                function_label_suffix = f" {ct.EpcLabels.SPLIT_FUNCTION}"
                 pred_id = next(iter(id_edges["in"][node_id].values()))["data"]["source"]
                 pred_graph_idx = basis_graph.events_by_index[pred_id]
                 # if already a function then skip
-                if epc["graph"][pred_graph_idx]["data"]["type"] == EpcLabels.FUNCTION:
+                if epc["graph"][pred_graph_idx]["data"]["type"] == ct.EpcLabels.FUNCTION:
                     continue
             if node_id != "start":
                 node_variants = node["data"]["variants"]
                 node_label = node["data"]["label"]
                 node_type = node["data"]["type"]
-                node["data"]["label"] = f"{node_label} {EpcLabels.EVENT_LABEL}"
+                node["data"]["label"] = f"{node_label} {ct.EpcLabels.EVENT_LABEL}"
 
                 function_id = f"{node_id}_{id_iter}_{node_label}_function"
                 if not (ct.Configs.DEBUG or is_csv or node_type == "XOR"):
-                    function_label = f"{functions(list(node_variants)[0])}{function_label_suffix}"
+                    function_label = f"{ms.functions(list(node_variants)[0])}{function_label_suffix}"
                 else:
                     function_label = f"{node_label}{function_label_suffix}"
-                function_node = {"data": {"id": function_id, "label": function_label, "type": EpcLabels.FUNCTION,
+                function_node = {"data": {"id": function_id, "label": function_label, "type": ct.EpcLabels.FUNCTION,
                                           "variants": node_variants}}
 
                 # add the function node to the graph
@@ -112,7 +108,7 @@ def create_epc(basis_graph, is_csv):
 
                 id_iter += 1
             else:
-                node["data"]["label"] = EpcLabels.START_LABEL
+                node["data"]["label"] = ct.EpcLabels.START_LABEL
 
     # merge identical nodes (functions as successors of split xor operators and their successors)
     basis_graph.merge_paths("epc")
@@ -127,7 +123,7 @@ def create_epc(basis_graph, is_csv):
     for edge in edges:
         if edge is not None:
             print(f'{edge["data"]["source"]} -> {edge["data"]["target"]}')
-            edge["data"]["type"] = EpcLabels.EDGE
+            edge["data"]["type"] = ct.EpcLabels.EDGE
             epc["graph"].append(edge)
 
     print("graph created")

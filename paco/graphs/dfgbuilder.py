@@ -1,4 +1,4 @@
-from ..configs import configs as ct
+from paco.utils import configs as ct
 
 
 def create_dfg(variants):
